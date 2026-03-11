@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Misiones Matemáticas - V1</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header class="hud">
+      <h1>🚀 Misiones Matemáticas</h1>
+      <div class="stats">
+        <div>⭐ Puntos: <span id="puntos">0</span></div>
+        <div>❤️ Vidas: <span id="vidas">2</span></div>
+        <div>⏱ Tiempo: <span id="tiempo">0</span>s</div>
+        <div>🎯 Nivel: <span id="nivelTxt">Sumas</span></div>
+        <div>🔁 Progreso: <span id="progreso">0</span>/5</div>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="left">
+        <div class="card combate">
+          <h2>👾 Enemigo</h2>
+          <div class="barra"><div id="vidaEnemigo" class="vida"></div></div>
+          <div id="mensaje" class="mensaje"></div>
+
+          <div class="operacion" id="panelOperacion">
+            <table>
+              <tr><td></td><td id="d1"></td><td id="u1"></td></tr>
+              <tr><td id="signo"></td><td id="d2"></td><td id="u2"></td></tr>
+              <tr><td colspan="3" class="linea"></td></tr>
+              <tr><td></td><td><input id="decenas" inputmode="numeric" maxlength="2"></td><td><input id="unidades" inputmode="numeric" maxlength="2"></td></tr>
+            </table>
+          </div>
+
+          <div class="actions">
+            <button id="btnResponder">Responder</button>
+            <button id="btnSkip">Saltar</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="right">
+        <div class="card misiones">
+          <h3>🗺️ Misión</h3>
+          <p id="misionTxt">Completa 5 operaciones del nivel actual.</p>
+          <div class="rewards">
+            <div id="medalla" class="medalla">🎖️ Aún sin medalla</div>
+            <div id="xpBar" class="xpbar"><div id="xpFill" style="width:0%"></div></div>
+            <div>XP: <span id="xp">0</span>/<span id="xpTarget">100</span></div>
+          </div>
+        </div>
+
+        <div class="card panel-config">
+          <h3>⚙️ Guardado</h3>
+          <p>Se guarda localmente y hay un archivo firebase placeholder para integrar.</p>
+          <button id="btnExport">Exportar progreso (JSON)</button>
+        </div>
+
+        <div class="card panel-panel">
+          <h3>📊 Panel rápido</h3>
+          <div id="panelQuick">Sin conexiones</div>
+        </div>
+      </aside>
+    </main>
+
+    <footer style="text-align:center;margin:18px 0;color:#fff8;">
+      Hecho para 2° primaria · Guarda en Firebase: edita <code>firebase-config.js</code>
+    </footer>
+  </div>
+
+<script src="js/gameEngine.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/firebase-placeholder.js"></script>
+</body>
+</html>
