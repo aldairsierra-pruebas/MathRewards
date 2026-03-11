@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -186,6 +185,28 @@ document.getElementById("tiempo").innerText=tiempo
 
 }
 
+function actualizarHUD(){
+document.getElementById("puntos").innerText=puntos
+document.getElementById("vidas").innerText=vidas
+document.getElementById("progreso").innerText=progreso
+document.getElementById("vidaEnemigo").style.width=`${vidaEnemigo}%`
+}
+
+function limpiarRespuesta(){
+document.getElementById("decenas").value=""
+document.getElementById("unidades").value=""
+document.getElementById("decenas").focus()
+}
+
+function reiniciarRonda(){
+progreso=0
+vidaEnemigo=100
+actualizarHUD()
+limpiarRespuesta()
+iniciarTimer()
+generarOperacion()
+}
+
 function generarOperacion(){
 
 let a,b,signo
@@ -229,5 +250,75 @@ respuesta=a*b
 let d1=Math.floor(a/10)
 let u1=a%10
 
-let d2=
-```
+let d2=Math.floor(b/10)
+let u2=b%10
+
+document.getElementById("d1").innerText=d1===0?"":d1
+document.getElementById("u1").innerText=u1
+document.getElementById("d2").innerText=d2===0?"":d2
+document.getElementById("u2").innerText=u2
+document.getElementById("signo").innerText=signo
+}
+
+function verificar(){
+let d=parseInt(document.getElementById("decenas").value)||0
+let u=parseInt(document.getElementById("unidades").value)||0
+let valor=d*10+u
+let mensaje=document.getElementById("mensaje")
+
+if(valor===respuesta){
+sonidoBien.currentTime=0
+sonidoBien.play()
+mensaje.innerText="✅ ¡Correcto!"
+mensaje.className="correcto"
+progreso++
+puntos+=10
+vidaEnemigo=Math.max(0,vidaEnemigo-20)
+
+if(progreso>=5){
+if(nivel<3){
+nivel++
+mensaje.innerText="🎉 Nivel superado. ¡Nueva ronda!"
+} else {
+mensaje.innerText="🏆 ¡Ganaste toda la misión! Reiniciando..."
+nivel=1
+vidas=2
+puntos=0
+}
+reiniciarRonda()
+return
+}
+
+actualizarHUD()
+limpiarRespuesta()
+generarOperacion()
+return
+}
+
+sonidoMal.currentTime=0
+sonidoMal.play()
+vidas--
+mensaje.innerText=`❌ Incorrecto. La respuesta era ${respuesta}`
+mensaje.className="error"
+
+if(vidas<=0){
+mensaje.innerText="💥 Te quedaste sin vidas. Reiniciando partida..."
+nivel=1
+vidas=2
+puntos=0
+reiniciarRonda()
+return
+}
+
+actualizarHUD()
+limpiarRespuesta()
+generarOperacion()
+}
+
+actualizarHUD()
+reiniciarRonda()
+
+</script>
+
+</body>
+</html>
