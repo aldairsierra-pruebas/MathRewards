@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Misiones Matemáticas</title>
+
+<style>
+
+body{
+font-family: Arial;
+text-align:center;
+background: linear-gradient(135deg,#6dd5ed,#2193b0);
+color:white;
+}
+
+.container{
+margin-top:40px;
+}
+
+h1{
+font-size:40px;
+}
+
+.panel{
+font-size:20px;
+margin:10px;
+}
+
+.operacion{
+display:inline-block;
+background:white;
+color:black;
+padding:20px 40px;
+border-radius:10px;
+font-size:50px;
+}
+
+table{
+border-collapse:collapse;
+}
+
+td{
+width:50px;
+text-align:right;
+}
+
+.linea{
+border-top:4px solid black;
+}
+
+input{
+width:50px;
+font-size:40px;
+text-align:center;
+}
+
+button{
+font-size:20px;
+padding:10px 20px;
+border:none;
+border-radius:8px;
+cursor:pointer;
+margin-top:20px;
+}
+
+.correcto{
+color:#00ff9d;
+font-size:26px;
+}
+
+.error{
+color:#ff8080;
+font-size:26px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>🚀 Misiones Matemáticas</h1>
+
+<div class="panel">
+⭐ Puntos: <span id="puntos">0</span> |
+❤️ Vidas: <span id="vidas">2</span> |
+⏱ Tiempo: <span id="tiempo">0</span>s
+</div>
+
+<div class="panel">
+Nivel: <span id="nivel">Sumas</span> |
+Progreso: <span id="progreso">0</span>/5
+</div>
+
+<div class="operacion">
+
+<table>
+
+<tr>
+<td></td>
+<td id="d1"></td>
+<td id="u1"></td>
+</tr>
+
+<tr>
+<td id="signo"></td>
+<td id="d2"></td>
+<td id="u2"></td>
+</tr>
+
+<tr>
+<td colspan="3" class="linea"></td>
+</tr>
+
+<tr>
+<td></td>
+<td><input id="decenas"></td>
+<td><input id="unidades"></td>
+</tr>
+
+</table>
+
+</div>
+
+<br>
+
+<button onclick="verificar()">Responder</button>
+
+<p id="mensaje"></p>
+
+</div>
+
+<script>
+
+let nivel=1
+let progreso=0
+let vidas=2
+let puntos=0
+let tiempo=0
+let respuesta
+
+let timer
+
+const sonidoBien = new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg")
+const sonidoMal = new Audio("https://actions.google.com/sounds/v1/cartoon/boing.ogg")
+
+function iniciarTimer(){
+clearInterval(timer)
+tiempo=0
+timer=setInterval(()=>{
+tiempo++
+document.getElementById("tiempo").innerText=tiempo
+},1000)
+}
+
+function generarOperacion(){
+
+let a,b,signo
+
+if(nivel===1){
+
+document.getElementById("nivel").innerText="Sumas"
+
+a=Math.floor(Math.random()*20)+1
+b=Math.floor(Math.random()*20)+1
+signo="+"
+respuesta=a+b
+
+}
+
+else if(nivel===2){
+
+document.getElementById("nivel").innerText="Restas"
+
+a=Math.floor(Math.random()*30)+10
+b=Math.floor(Math.random()*20)+1
+if(b>a){let t=a;a=b;b=t}
+signo="-"
+respuesta=a-b
+
+}
+
+else{
+
+document.getElementById("nivel").innerText="Multiplicaciones"
+
+a=Math.floor(Math.random()*5)+2
+b=Math.floor(Math.random()*5)+2
+signo="×"
+respuesta=a*b
+
+}
+
+let d1=Math.floor(a/10)
+let u1=a%10
+let d2=Math.floor(b/10)
+let u2=b%10
+
+document.getElementById("d1").innerText=d1>0?d1:""
+document.getElementById("u1").innerText=u1
+
+document.getElementById("d2").innerText=d2>0?d2:""
+document.getElementById("u2").innerText=u2
+
+document.getElementById("signo").innerText=signo
+
+document.getElementById("decenas").value=""
+document.getElementById("unidades").value=""
+
+iniciarTimer()
+
+}
+
+function verificar(){
+
+let dec=document.getElementById("decenas").value
+let uni=document.getElementById("unidades").value
+
+let resp=parseInt(dec+uni)
+
+if(resp===respuesta){
+
+sonidoBien.play()
+
+let bonus=Math.max(10-tiempo,1)
+puntos+=10+bonus
+
+progreso++
+
+document.getElementById("mensaje").innerHTML="<span class='correcto'>¡Correcto! +" + (10+bonus) +" pts</span>"
+
+}else{
+
+sonidoMal.play()
+
+vidas--
+
+document.getElementById("mensaje").innerHTML="<span class='error'>Incorrecto 😅 era "+respuesta+"</span>"
+}
+
+document.getElementById("puntos").innerText=puntos
+document.getElementById("vidas").innerText=vidas
+document.getElementById("progreso").innerText=progreso
+
+if(vidas<=0){
+
+document.getElementById("mensaje").innerHTML="<span class='error'>💀 Fin del juego</span>"
+clearInterval(timer)
+return
+
+}
+
+if(progreso>=5){
+
+nivel++
+progreso=0
+vidas=2
+
+if(nivel>3){
+
+document.getElementById("mensaje").innerHTML="<span class='correcto'>🏆 ¡Ganaste el juego!</span>"
+clearInterval(timer)
+return
+
+}
+
+}
+
+setTimeout(generarOperacion,1200)
+
+}
+
+generarOperacion()
+
+</script>
+
+</body>
+</html>
