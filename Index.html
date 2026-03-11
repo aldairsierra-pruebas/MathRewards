@@ -1,233 +1,549 @@
-```html
 <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Misiones Matemáticas</title>
-
 <style>
-
-body{
-font-family: Arial;
-text-align:center;
-background: linear-gradient(135deg,#6dd5ed,#2193b0);
-color:white;
+body {
+  font-family: Arial, sans-serif;
+  text-align: center;
+  background: linear-gradient(135deg, #6dd5ed, #2193b0);
+  color: white;
+  margin: 0;
 }
 
-.container{
-margin-top:30px;
+.container {
+  margin: 20px auto 40px;
+  max-width: 900px;
+  padding: 0 16px;
 }
 
-h1{
-font-size:38px;
+h1 { font-size: 38px; margin-bottom: 12px; }
+
+.panel {
+  font-size: 18px;
+  margin: 10px;
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 12px;
+  padding: 10px;
 }
 
-.panel{
-font-size:18px;
-margin:10px;
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+  margin: 14px 0;
 }
 
-.operacion{
-display:inline-block;
-background:white;
-color:black;
-padding:20px 40px;
-border-radius:10px;
-font-size:48px;
+.card {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 16px;
+  padding: 14px;
 }
 
-table{
-border-collapse:collapse;
+.card h3 { margin-top: 0; }
+
+.avatar-stage {
+  width: 120px;
+  height: 140px;
+  margin: 0 auto 10px;
+  position: relative;
 }
 
-td{
-width:50px;
-text-align:right;
+.avatar-svg {
+  width: 120px;
+  height: 140px;
 }
 
-.linea{
-border-top:4px solid black;
+.avatar-main {
+  margin: 6px auto;
 }
 
-input{
-width:50px;
-font-size:38px;
-text-align:center;
+.avatar-mini {
+  width: 62px;
+  height: 74px;
 }
 
-button{
-font-size:20px;
-padding:10px 20px;
-border:none;
-border-radius:8px;
-cursor:pointer;
-margin-top:15px;
+label { display: block; margin: 8px 0 4px; }
+
+select {
+  width: 100%;
+  padding: 7px;
+  border-radius: 8px;
+  border: none;
 }
 
-.correcto{color:#00ff9d;}
-.error{color:#ff8080;}
-
-.barra{
-width:300px;
-height:25px;
-background:#333;
-margin:auto;
-border-radius:20px;
-overflow:hidden;
+.catalog-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.14);
+  padding: 8px;
+  border-radius: 10px;
+  margin: 8px 0;
 }
 
-.vida{
-height:100%;
-background:#ff4c4c;
-width:100%;
-transition:0.3s;
+.catalog-item small { display: block; opacity: 0.92; }
+
+.operacion {
+  display: inline-block;
+  background: white;
+  color: black;
+  padding: 20px 40px;
+  border-radius: 10px;
+  font-size: 48px;
 }
 
-.medalla{
-font-size:30px;
-margin-top:10px;
+table { border-collapse: collapse; }
+td { width: 50px; text-align: right; }
+.linea { border-top: 4px solid black; }
+
+input {
+  width: 50px;
+  font-size: 38px;
+  text-align: center;
 }
 
+button {
+  font-size: 15px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+#resolverBtn {
+  margin-top: 15px;
+  font-size: 20px;
+  padding: 10px 20px;
+}
+
+.correcto { color: #00ff9d; }
+.error { color: #ff8080; }
+
+.barra {
+  width: 300px;
+  height: 25px;
+  background: #333;
+  margin: auto;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.vida {
+  height: 100%;
+  background: #ff4c4c;
+  width: 100%;
+  transition: 0.3s;
+}
+
+.medalla { font-size: 30px; margin-top: 10px; }
+
+#resultadoMision {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 10px;
+  min-height: 90px;
+}
+
+.tag {
+  display: inline-block;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+}
 </style>
 </head>
-
 <body>
-
 <div class="container">
+  <h1>🚀 Misiones Matemáticas</h1>
 
-<h1>🚀 Misiones Matemáticas</h1>
+  <div class="panel">
+    ⭐ Puntos: <span id="puntos">0</span> |
+    🪙 Monedas: <span id="monedas">0</span> |
+    ❤️ Vidas: <span id="vidas">2</span> |
+    ⏱ Tiempo: <span id="tiempo">0</span>s
+  </div>
 
-<div class="panel">
-⭐ Puntos: <span id="puntos">0</span> |
-❤️ Vidas: <span id="vidas">2</span> |
-⏱ Tiempo: <span id="tiempo">0</span>s
-</div>
+  <div class="panel">
+    Nivel: <span id="nivel">Sumas</span> |
+    Progreso: <span id="progreso">0</span>/5
+  </div>
 
-<div class="panel">
-Nivel: <span id="nivel">Sumas</span> |
-Progreso: <span id="progreso">0</span>/5
-</div>
+  <div class="grid">
+    <div class="card">
+      <h3>🧑‍🚀 Avatar del jugador</h3>
+      <div id="avatarMain" class="avatar-stage avatar-main"></div>
+      <label for="headSelect">Cabeza</label>
+      <select id="headSelect"></select>
 
-<h2>👾 Enemigo</h2>
+      <label for="colorSelect">Color</label>
+      <select id="colorSelect"></select>
 
-<div class="barra">
-<div class="vida" id="vidaEnemigo"></div>
-</div>
+      <label for="accessorySelect">Accesorio</label>
+      <select id="accessorySelect"></select>
+      <small class="tag">Se guarda automáticamente en localStorage</small>
+    </div>
 
-<div class="medalla" id="medalla"></div>
+    <div class="card">
+      <h3>🛍️ Catálogo de cosméticos</h3>
+      <div id="catalogo"></div>
+    </div>
+  </div>
 
-<br>
+  <h2>👾 Enemigo</h2>
+  <div class="barra"><div class="vida" id="vidaEnemigo"></div></div>
+  <div class="medalla" id="medalla"></div>
 
-<div class="operacion">
+  <br>
+  <div class="operacion">
+    <table>
+      <tr><td></td><td id="d1"></td><td id="u1"></td></tr>
+      <tr><td id="signo"></td><td id="d2"></td><td id="u2"></td></tr>
+      <tr><td colspan="3" class="linea"></td></tr>
+      <tr><td></td><td><input id="decenas"></td><td><input id="unidades"></td></tr>
+    </table>
+  </div>
 
-<table>
+  <br>
+  <button id="resolverBtn" onclick="verificar()">Responder</button>
 
-<tr>
-<td></td>
-<td id="d1"></td>
-<td id="u1"></td>
-</tr>
-
-<tr>
-<td id="signo"></td>
-<td id="d2"></td>
-<td id="u2"></td>
-</tr>
-
-<tr>
-<td colspan="3" class="linea"></td>
-</tr>
-
-<tr>
-<td></td>
-<td><input id="decenas"></td>
-<td><input id="unidades"></td>
-</tr>
-
-</table>
-
-</div>
-
-<br>
-
-<button onclick="verificar()">Responder</button>
-
-<p id="mensaje"></p>
-
+  <div id="resultadoMision">
+    <div id="avatarResultado" class="avatar-stage avatar-mini"></div>
+    <p id="mensaje"></p>
+  </div>
 </div>
 
 <script>
+const STORAGE_KEY = "mathRewardsState";
 
-let nivel=1
-let progreso=0
-let vidas=2
-let puntos=0
-let tiempo=0
-let respuesta
-let vidaEnemigo=100
+const defaultState = {
+  monedas: 0,
+  inventario: ["hat_none", "effect_none", "frame_none"],
+  equipado: { hat: "hat_none", effect: "effect_none", frame: "frame_none" },
+  avatar: { head: "round", color: "sky", accessory: "none" }
+};
 
-let timer
+const avatarOptions = {
+  heads: [
+    { id: "round", label: "Redonda" },
+    { id: "square", label: "Cuadrada" }
+  ],
+  colors: [
+    { id: "sky", label: "Celeste", value: "#86c5ff" },
+    { id: "mint", label: "Menta", value: "#8af0c6" },
+    { id: "sun", label: "Dorada", value: "#ffd166" },
+    { id: "violet", label: "Violeta", value: "#b692ff" }
+  ],
+  accessories: [
+    { id: "none", label: "Ninguno" },
+    { id: "glasses", label: "Gafas" },
+    { id: "antenna", label: "Antena" }
+  ]
+};
 
-const sonidoBien = new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg")
-const sonidoMal = new Audio("https://actions.google.com/sounds/v1/cartoon/boing.ogg")
+const catalogo = [
+  { id: "hat_none", tipo: "hat", nombre: "Sin sombrero", costo: 0, preview: "🧢" },
+  { id: "hat_cap", tipo: "hat", nombre: "Gorra espacial", costo: 20, preview: "🧢" },
+  { id: "hat_crown", tipo: "hat", nombre: "Corona estelar", costo: 45, preview: "👑" },
+  { id: "effect_none", tipo: "effect", nombre: "Sin efecto", costo: 0, preview: "✨" },
+  { id: "effect_stars", tipo: "effect", nombre: "Brillo de estrellas", costo: 25, preview: "✨" },
+  { id: "effect_fire", tipo: "effect", nombre: "Rastro de fuego", costo: 40, preview: "🔥" },
+  { id: "frame_none", tipo: "frame", nombre: "Sin marco", costo: 0, preview: "⬜" },
+  { id: "frame_blue", tipo: "frame", nombre: "Marco azul", costo: 30, preview: "🟦" },
+  { id: "frame_gold", tipo: "frame", nombre: "Marco dorado", costo: 55, preview: "🟨" }
+];
 
-function iniciarTimer(){
+let nivel = 1;
+let progreso = 0;
+let vidas = 2;
+let puntos = 0;
+let tiempo = 0;
+let respuesta = 0;
+let vidaEnemigo = 100;
+let timer;
 
-clearInterval(timer)
+const state = loadState();
 
-tiempo=0
+const sonidoBien = new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg");
+const sonidoMal = new Audio("https://actions.google.com/sounds/v1/cartoon/boing.ogg");
 
-timer=setInterval(()=>{
+function loadState() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return JSON.parse(JSON.stringify(defaultState));
 
-tiempo++
-document.getElementById("tiempo").innerText=tiempo
-
-},1000)
-
+  try {
+    const parsed = JSON.parse(raw);
+    return {
+      ...defaultState,
+      ...parsed,
+      avatar: { ...defaultState.avatar, ...(parsed.avatar || {}) },
+      equipado: { ...defaultState.equipado, ...(parsed.equipado || {}) },
+      inventario: Array.isArray(parsed.inventario) ? parsed.inventario : [...defaultState.inventario]
+    };
+  } catch {
+    return JSON.parse(JSON.stringify(defaultState));
+  }
 }
 
-function generarOperacion(){
-
-let a,b,signo
-
-if(nivel===1){
-
-document.getElementById("nivel").innerText="Sumas"
-
-a=Math.floor(Math.random()*20)+1
-b=Math.floor(Math.random()*20)+1
-signo="+"
-respuesta=a+b
-
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
-else if(nivel===2){
-
-document.getElementById("nivel").innerText="Restas"
-
-a=Math.floor(Math.random()*40)+10
-b=Math.floor(Math.random()*20)+1
-
-if(b>a){let t=a;a=b;b=t}
-
-signo="-"
-respuesta=a-b
-
+function updateHud() {
+  document.getElementById("puntos").innerText = puntos;
+  document.getElementById("vidas").innerText = vidas;
+  document.getElementById("tiempo").innerText = tiempo;
+  document.getElementById("progreso").innerText = progreso;
+  document.getElementById("monedas").innerText = state.monedas;
 }
 
-else{
-
-document.getElementById("nivel").innerText="Multiplicaciones"
-
-a=Math.floor(Math.random()*6)+2
-b=Math.floor(Math.random()*6)+2
-signo="×"
-respuesta=a*b
-
+function iniciarTimer() {
+  clearInterval(timer);
+  tiempo = 0;
+  updateHud();
+  timer = setInterval(() => {
+    tiempo++;
+    document.getElementById("tiempo").innerText = tiempo;
+  }, 1000);
 }
 
-let d1=Math.floor(a/10)
-let u1=a%10
+function generarOperacion() {
+  let a, b, signo;
+  if (nivel === 1) {
+    document.getElementById("nivel").innerText = "Sumas";
+    a = Math.floor(Math.random() * 20) + 1;
+    b = Math.floor(Math.random() * 20) + 1;
+    signo = "+";
+    respuesta = a + b;
+  } else if (nivel === 2) {
+    document.getElementById("nivel").innerText = "Restas";
+    a = Math.floor(Math.random() * 40) + 10;
+    b = Math.floor(Math.random() * 20) + 1;
+    if (b > a) {
+      const t = a;
+      a = b;
+      b = t;
+    }
+    signo = "-";
+    respuesta = a - b;
+  } else {
+    document.getElementById("nivel").innerText = "Multiplicaciones";
+    a = Math.floor(Math.random() * 6) + 2;
+    b = Math.floor(Math.random() * 6) + 2;
+    signo = "×";
+    respuesta = a * b;
+  }
 
-let d2=
-```
+  const d1 = Math.floor(a / 10);
+  const u1 = a % 10;
+  const d2 = Math.floor(b / 10);
+  const u2 = b % 10;
+
+  document.getElementById("d1").innerText = d1 === 0 ? "" : d1;
+  document.getElementById("u1").innerText = u1;
+  document.getElementById("signo").innerText = signo;
+  document.getElementById("d2").innerText = d2 === 0 ? "" : d2;
+  document.getElementById("u2").innerText = u2;
+
+  document.getElementById("decenas").value = "";
+  document.getElementById("unidades").value = "";
+  document.getElementById("decenas").focus();
+}
+
+function verificar() {
+  const d = parseInt(document.getElementById("decenas").value || "0", 10);
+  const u = parseInt(document.getElementById("unidades").value || "0", 10);
+  const valor = d * 10 + u;
+  const mensaje = document.getElementById("mensaje");
+
+  if (valor === respuesta) {
+    sonidoBien.play();
+    mensaje.className = "correcto";
+    mensaje.innerText = "¡Correcto! +10 puntos y +8 monedas";
+
+    puntos += 10;
+    state.monedas += 8;
+    progreso++;
+    vidaEnemigo = Math.max(0, vidaEnemigo - 20);
+
+    if (progreso >= 5) {
+      progreso = 0;
+      nivel = Math.min(3, nivel + 1);
+      vidaEnemigo = 100;
+      document.getElementById("medalla").innerText = "🏅 Nivel completado";
+    }
+  } else {
+    sonidoMal.play();
+    mensaje.className = "error";
+    mensaje.innerText = `Fallaste. Respuesta correcta: ${respuesta}`;
+    vidas--;
+
+    if (vidas <= 0) {
+      alert("Fin del juego. Reiniciando...");
+      nivel = 1;
+      progreso = 0;
+      vidas = 2;
+      puntos = 0;
+      vidaEnemigo = 100;
+      document.getElementById("medalla").innerText = "";
+    }
+  }
+
+  document.getElementById("vidaEnemigo").style.width = vidaEnemigo + "%";
+  saveState();
+  renderCatalogo();
+  updateHud();
+  generarOperacion();
+  renderAvatar();
+}
+
+function fillSelect(selectId, options, selected) {
+  const select = document.getElementById(selectId);
+  select.innerHTML = options.map((opt) => `<option value="${opt.id}">${opt.label}</option>`).join("");
+  select.value = selected;
+}
+
+function wireAvatarControls() {
+  fillSelect("headSelect", avatarOptions.heads, state.avatar.head);
+  fillSelect("colorSelect", avatarOptions.colors, state.avatar.color);
+  fillSelect("accessorySelect", avatarOptions.accessories, state.avatar.accessory);
+
+  document.getElementById("headSelect").addEventListener("change", (e) => {
+    state.avatar.head = e.target.value;
+    saveState();
+    renderAvatar();
+  });
+  document.getElementById("colorSelect").addEventListener("change", (e) => {
+    state.avatar.color = e.target.value;
+    saveState();
+    renderAvatar();
+  });
+  document.getElementById("accessorySelect").addEventListener("change", (e) => {
+    state.avatar.accessory = e.target.value;
+    saveState();
+    renderAvatar();
+  });
+}
+
+function cosmeticsByType(type) {
+  return catalogo.filter((item) => item.tipo === type);
+}
+
+function renderCatalogo() {
+  const cont = document.getElementById("catalogo");
+  const tipos = [
+    { key: "hat", title: "Sombreros" },
+    { key: "effect", title: "Efectos" },
+    { key: "frame", title: "Marcos" }
+  ];
+
+  cont.innerHTML = tipos.map((t) => {
+    const items = cosmeticsByType(t.key).map((item) => {
+      const owned = state.inventario.includes(item.id);
+      const equipped = state.equipado[t.key] === item.id;
+
+      let action = `<button onclick="comprarCosmetico('${item.id}')">Comprar (${item.costo}🪙)</button>`;
+      if (owned) action = `<button onclick="equiparCosmetico('${item.id}')">${equipped ? "Equipado" : "Equipar"}</button>`;
+
+      return `<div class="catalog-item"><div><strong>${item.preview} ${item.nombre}</strong><small>${item.costo} monedas</small></div>${action}</div>`;
+    }).join("");
+    return `<h4>${t.title}</h4>${items}`;
+  }).join("");
+}
+
+function comprarCosmetico(id) {
+  const item = catalogo.find((c) => c.id === id);
+  if (!item) return;
+  if (state.inventario.includes(id)) return;
+
+  if (state.monedas < item.costo) {
+    alert(`No tienes suficientes monedas. Te faltan ${item.costo - state.monedas}.`);
+    return;
+  }
+
+  state.monedas -= item.costo;
+  state.inventario.push(id);
+  state.equipado[item.tipo] = id;
+
+  saveState();
+  updateHud();
+  renderCatalogo();
+  renderAvatar();
+}
+
+function equiparCosmetico(id) {
+  if (!state.inventario.includes(id)) return;
+  const item = catalogo.find((c) => c.id === id);
+  if (!item) return;
+
+  state.equipado[item.tipo] = id;
+  saveState();
+  renderCatalogo();
+  renderAvatar();
+}
+
+function avatarSVG() {
+  const color = avatarOptions.colors.find((c) => c.id === state.avatar.color)?.value || "#86c5ff";
+  const headShape = state.avatar.head === "square"
+    ? `<rect x="34" y="32" width="52" height="52" rx="8" fill="${color}" stroke="#133" stroke-width="2"/>`
+    : `<circle cx="60" cy="58" r="26" fill="${color}" stroke="#133" stroke-width="2"/>`;
+
+  const accessory = state.avatar.accessory === "glasses"
+    ? `<rect x="42" y="51" width="14" height="8" fill="none" stroke="#111" stroke-width="2"/><rect x="64" y="51" width="14" height="8" fill="none" stroke="#111" stroke-width="2"/><line x1="56" y1="55" x2="64" y2="55" stroke="#111" stroke-width="2"/>`
+    : state.avatar.accessory === "antenna"
+      ? `<line x1="60" y1="30" x2="60" y2="14" stroke="#eee" stroke-width="3"/><circle cx="60" cy="11" r="4" fill="#ff5"/>`
+      : "";
+
+  const hat = state.equipado.hat === "hat_crown"
+    ? `<text x="60" y="26" text-anchor="middle" font-size="20">👑</text>`
+    : state.equipado.hat === "hat_cap"
+      ? `<path d="M35 36 Q60 12 85 36 L75 38 Q60 26 45 38 Z" fill="#243B53"/><rect x="47" y="36" width="34" height="6" rx="3" fill="#1d2d44"/>`
+      : "";
+
+  const effect = state.equipado.effect === "effect_stars"
+    ? `<text x="25" y="20" font-size="12">✨</text><text x="88" y="18" font-size="12">✨</text>`
+    : state.equipado.effect === "effect_fire"
+      ? `<text x="22" y="20" font-size="12">🔥</text><text x="86" y="20" font-size="12">🔥</text>`
+      : "";
+
+  const frame = state.equipado.frame === "frame_gold"
+    ? "#f2c94c"
+    : state.equipado.frame === "frame_blue"
+      ? "#6fa8dc"
+      : "rgba(255,255,255,0.4)";
+
+  return `<svg class="avatar-svg" viewBox="0 0 120 140" role="img" aria-label="Avatar del jugador">
+    <rect x="2" y="2" width="116" height="136" rx="16" fill="rgba(255,255,255,0.12)" stroke="${frame}" stroke-width="4"/>
+    ${effect}
+    ${hat}
+    ${headShape}
+    ${accessory}
+    <circle cx="50" cy="58" r="3" fill="#1a1a1a"/>
+    <circle cx="70" cy="58" r="3" fill="#1a1a1a"/>
+    <path d="M50 72 Q60 79 70 72" fill="none" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+    <rect x="45" y="86" width="30" height="34" rx="8" fill="#f4f7fb" stroke="#133" stroke-width="2"/>
+  </svg>`;
+}
+
+function renderAvatar() {
+  document.getElementById("avatarMain").innerHTML = avatarSVG();
+  document.getElementById("avatarResultado").innerHTML = avatarSVG();
+}
+
+wireAvatarControls();
+renderCatalogo();
+renderAvatar();
+iniciarTimer();
+generarOperacion();
+updateHud();
+saveState();
+</script>
+</body>
+</html>
