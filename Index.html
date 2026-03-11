@@ -1,233 +1,453 @@
-```html
 <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Misiones Matemáticas</title>
-
 <style>
-
-body{
-font-family: Arial;
-text-align:center;
-background: linear-gradient(135deg,#6dd5ed,#2193b0);
-color:white;
+:root {
+  --bg-1: #081c3b;
+  --bg-2: #163b75;
+  --bg-3: #2c5fae;
+  --card: #f9fbff;
+  --ink: #13233d;
+  --accent: #ffcf33;
+  --accent-2: #36d17e;
+  --danger: #ff5f5f;
+  --shadow: 0 12px 0 rgba(0, 0, 0, 0.2);
 }
 
-.container{
-margin-top:30px;
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Nunito", "Arial Rounded MT Bold", Arial, sans-serif;
+  color: #fff;
+  background:
+    radial-gradient(circle at 20% 15%, rgba(255, 255, 255, 0.15) 0 18%, transparent 19%),
+    radial-gradient(circle at 80% 5%, rgba(255, 255, 255, 0.12) 0 12%, transparent 13%),
+    linear-gradient(160deg, var(--bg-1), var(--bg-2) 45%, var(--bg-3));
+  padding: 20px;
 }
 
-h1{
-font-size:38px;
+.container {
+  max-width: 980px;
+  margin: 0 auto;
+  display: grid;
+  gap: 16px;
 }
 
-.panel{
-font-size:18px;
-margin:10px;
+.card {
+  border-radius: 22px;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  border: 3px solid rgba(19, 35, 61, 0.15);
+  padding: 18px;
 }
 
-.operacion{
-display:inline-block;
-background:white;
-color:black;
-padding:20px 40px;
-border-radius:10px;
-font-size:48px;
+.hud {
+  background: linear-gradient(135deg, #ffd95c, #ffbe2f);
 }
 
-table{
-border-collapse:collapse;
+h1 {
+  margin: 0 0 10px;
+  font-size: clamp(2rem, 4vw, 2.6rem);
 }
 
-td{
-width:50px;
-text-align:right;
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  font-size: 1.25rem;
+  font-weight: 800;
 }
 
-.linea{
-border-top:4px solid black;
+main {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 16px;
 }
 
-input{
-width:50px;
-font-size:38px;
-text-align:center;
+.combate {
+  background: linear-gradient(150deg, #fff, #edf4ff);
 }
 
-button{
-font-size:20px;
-padding:10px 20px;
-border:none;
-border-radius:8px;
-cursor:pointer;
-margin-top:15px;
+.panel-title {
+  margin: 0 0 8px;
+  font-size: 1.7rem;
 }
 
-.correcto{color:#00ff9d;}
-.error{color:#ff8080;}
-
-.barra{
-width:300px;
-height:25px;
-background:#333;
-margin:auto;
-border-radius:20px;
-overflow:hidden;
+.barra {
+  width: 100%;
+  height: 28px;
+  background: #283956;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 3px solid #13233d;
 }
 
-.vida{
-height:100%;
-background:#ff4c4c;
-width:100%;
-transition:0.3s;
+.vida {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #ff5f5f, #ff8b49);
+  transition: width 0.3s ease;
 }
 
-.medalla{
-font-size:30px;
-margin-top:10px;
+.operacion {
+  margin: 16px auto 10px;
+  width: max-content;
+  padding: 14px 24px;
+  border-radius: 16px;
+  background: #fff;
+  border: 3px solid #13233d;
+  box-shadow: 0 7px 0 rgba(19, 35, 61, 0.2);
 }
 
+table {
+  border-collapse: collapse;
+  font-size: clamp(2.2rem, 5vw, 3.2rem);
+  font-weight: 900;
+}
+
+td {
+  width: 62px;
+  text-align: right;
+}
+
+.linea { border-top: 5px solid #13233d; }
+
+input {
+  width: 62px;
+  height: 58px;
+  font-size: 2.2rem;
+  font-weight: 900;
+  border-radius: 10px;
+  border: 3px solid #13233d;
+  text-align: center;
+  color: #13233d;
+}
+
+input:focus {
+  outline: none;
+  border-color: #2c5fae;
+  box-shadow: 0 0 0 4px rgba(44, 95, 174, 0.25);
+}
+
+.actions {
+  margin-top: 14px;
+  display: flex;
+  justify-content: center;
+}
+
+button {
+  font-size: 1.3rem;
+  font-weight: 800;
+  border: none;
+  border-radius: 14px;
+  padding: 12px 28px;
+  color: #13233d;
+  background: var(--accent);
+  box-shadow: 0 7px 0 #b18600;
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+button:hover { transform: translateY(-2px) scale(1.02); filter: brightness(1.05); }
+button:active { transform: translateY(3px) scale(0.98); box-shadow: 0 3px 0 #b18600; }
+
+#mensaje {
+  min-height: 30px;
+  margin: 10px 0 0;
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+
+.correcto { color: #088a45; }
+.error { color: #c62828; }
+
+.side {
+  display: grid;
+  gap: 16px;
+}
+
+.misiones {
+  background: linear-gradient(135deg, #d7f8ff, #bce7ff);
+}
+
+.recompensas {
+  background: linear-gradient(135deg, #ffe9fb, #fbdcff);
+}
+
+.badge {
+  font-size: 2rem;
+  margin-top: 8px;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+}
+
+li {
+  font-size: 1.15rem;
+  font-weight: 800;
+  margin: 6px 0;
+}
+
+.shake { animation: shake 0.35s ease; }
+.pop-ok { animation: popOk 0.35s ease; }
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  50% { transform: translateX(6px); }
+  75% { transform: translateX(-4px); }
+}
+
+@keyframes popOk {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+.confetti {
+  position: fixed;
+  width: 10px;
+  height: 14px;
+  top: -20px;
+  border-radius: 4px;
+  opacity: 0.9;
+  animation: fall 1s ease-out forwards;
+  z-index: 30;
+}
+
+@keyframes fall {
+  to {
+    transform: translateY(110vh) rotate(540deg);
+    opacity: 0;
+  }
+}
+
+@media (max-width: 860px) {
+  main { grid-template-columns: 1fr; }
+}
 </style>
 </head>
-
 <body>
-
 <div class="container">
+  <header class="card hud">
+    <h1>🚀 Misiones Matemáticas</h1>
+    <div class="stats">
+      <div>⭐ Puntos: <span id="puntos">0</span></div>
+      <div>❤️ Vidas: <span id="vidas">2</span></div>
+      <div>⏱ Tiempo: <span id="tiempo">0</span>s</div>
+      <div>📚 Nivel: <span id="nivel">Sumas</span></div>
+      <div>🎯 Progreso: <span id="progreso">0</span>/5</div>
+    </div>
+  </header>
 
-<h1>🚀 Misiones Matemáticas</h1>
+  <main>
+    <section class="card combate" id="zonaCombate">
+      <h2 class="panel-title">👾 Zona de combate</h2>
+      <div class="barra">
+        <div class="vida" id="vidaEnemigo"></div>
+      </div>
+      <div class="operacion">
+        <table>
+          <tr><td></td><td id="d1"></td><td id="u1"></td></tr>
+          <tr><td id="signo"></td><td id="d2"></td><td id="u2"></td></tr>
+          <tr><td colspan="3" class="linea"></td></tr>
+          <tr><td></td><td><input id="decenas" inputmode="numeric"></td><td><input id="unidades" inputmode="numeric"></td></tr>
+        </table>
+      </div>
+      <div class="actions"><button onclick="verificar()">Responder</button></div>
+      <p id="mensaje"></p>
+    </section>
 
-<div class="panel">
-⭐ Puntos: <span id="puntos">0</span> |
-❤️ Vidas: <span id="vidas">2</span> |
-⏱ Tiempo: <span id="tiempo">0</span>s
-</div>
+    <aside class="side">
+      <section class="card misiones">
+        <h2 class="panel-title">🗺️ Misiones</h2>
+        <ul>
+          <li>• Resuelve 5 operaciones para subir nivel.</li>
+          <li>• Cuida tus vidas y termina rápido.</li>
+          <li>• Domina suma, resta y multiplicación.</li>
+        </ul>
+      </section>
 
-<div class="panel">
-Nivel: <span id="nivel">Sumas</span> |
-Progreso: <span id="progreso">0</span>/5
-</div>
-
-<h2>👾 Enemigo</h2>
-
-<div class="barra">
-<div class="vida" id="vidaEnemigo"></div>
-</div>
-
-<div class="medalla" id="medalla"></div>
-
-<br>
-
-<div class="operacion">
-
-<table>
-
-<tr>
-<td></td>
-<td id="d1"></td>
-<td id="u1"></td>
-</tr>
-
-<tr>
-<td id="signo"></td>
-<td id="d2"></td>
-<td id="u2"></td>
-</tr>
-
-<tr>
-<td colspan="3" class="linea"></td>
-</tr>
-
-<tr>
-<td></td>
-<td><input id="decenas"></td>
-<td><input id="unidades"></td>
-</tr>
-
-</table>
-
-</div>
-
-<br>
-
-<button onclick="verificar()">Responder</button>
-
-<p id="mensaje"></p>
-
+      <section class="card recompensas">
+        <h2 class="panel-title">🏆 Recompensas</h2>
+        <div id="medalla" class="badge">🎖️ ¡Aún sin medalla!</div>
+      </section>
+    </aside>
+  </main>
 </div>
 
 <script>
+let nivel = 1;
+let progreso = 0;
+let vidas = 2;
+let puntos = 0;
+let tiempo = 0;
+let respuesta = 0;
+let vidaEnemigo = 100;
+let timer;
 
-let nivel=1
-let progreso=0
-let vidas=2
-let puntos=0
-let tiempo=0
-let respuesta
-let vidaEnemigo=100
+const sonidoBien = new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg");
+const sonidoMal = new Audio("https://actions.google.com/sounds/v1/cartoon/boing.ogg");
 
-let timer
-
-const sonidoBien = new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg")
-const sonidoMal = new Audio("https://actions.google.com/sounds/v1/cartoon/boing.ogg")
-
-function iniciarTimer(){
-
-clearInterval(timer)
-
-tiempo=0
-
-timer=setInterval(()=>{
-
-tiempo++
-document.getElementById("tiempo").innerText=tiempo
-
-},1000)
-
+function iniciarTimer() {
+  clearInterval(timer);
+  tiempo = 0;
+  timer = setInterval(() => {
+    tiempo++;
+    document.getElementById("tiempo").innerText = tiempo;
+  }, 1000);
 }
 
-function generarOperacion(){
+function generarOperacion() {
+  let a, b, op;
 
-let a,b,signo
+  if (nivel === 1) {
+    document.getElementById("nivel").innerText = "Sumas";
+    a = Math.floor(Math.random() * 20) + 1;
+    b = Math.floor(Math.random() * 20) + 1;
+    op = "+";
+    respuesta = a + b;
+  } else if (nivel === 2) {
+    document.getElementById("nivel").innerText = "Restas";
+    a = Math.floor(Math.random() * 40) + 10;
+    b = Math.floor(Math.random() * 20) + 1;
+    if (b > a) {
+      const t = a;
+      a = b;
+      b = t;
+    }
+    op = "-";
+    respuesta = a - b;
+  } else {
+    document.getElementById("nivel").innerText = "Multiplicaciones";
+    a = Math.floor(Math.random() * 6) + 2;
+    b = Math.floor(Math.random() * 6) + 2;
+    op = "×";
+    respuesta = a * b;
+  }
 
-if(nivel===1){
+  document.getElementById("d1").innerText = Math.floor(a / 10) || "";
+  document.getElementById("u1").innerText = a % 10;
+  document.getElementById("signo").innerText = op;
+  document.getElementById("d2").innerText = Math.floor(b / 10) || "";
+  document.getElementById("u2").innerText = b % 10;
 
-document.getElementById("nivel").innerText="Sumas"
-
-a=Math.floor(Math.random()*20)+1
-b=Math.floor(Math.random()*20)+1
-signo="+"
-respuesta=a+b
-
+  document.getElementById("decenas").value = "";
+  document.getElementById("unidades").value = "";
 }
 
-else if(nivel===2){
-
-document.getElementById("nivel").innerText="Restas"
-
-a=Math.floor(Math.random()*40)+10
-b=Math.floor(Math.random()*20)+1
-
-if(b>a){let t=a;a=b;b=t}
-
-signo="-"
-respuesta=a-b
-
+function lanzarConfeti() {
+  const colores = ["#ff5f5f", "#36d17e", "#ffd43b", "#6ea8ff", "#ff77e9"];
+  for (let i = 0; i < 24; i++) {
+    const c = document.createElement("span");
+    c.className = "confetti";
+    c.style.left = `${Math.random() * 100}vw`;
+    c.style.background = colores[Math.floor(Math.random() * colores.length)];
+    c.style.animationDelay = `${Math.random() * 0.2}s`;
+    c.style.transform = `translateY(-20px) rotate(${Math.random() * 180}deg)`;
+    document.body.appendChild(c);
+    setTimeout(() => c.remove(), 1300);
+  }
 }
 
-else{
-
-document.getElementById("nivel").innerText="Multiplicaciones"
-
-a=Math.floor(Math.random()*6)+2
-b=Math.floor(Math.random()*6)+2
-signo="×"
-respuesta=a*b
-
+function animarError() {
+  const zona = document.getElementById("zonaCombate");
+  zona.classList.remove("shake");
+  void zona.offsetWidth;
+  zona.classList.add("shake");
 }
 
-let d1=Math.floor(a/10)
-let u1=a%10
+function animarAcierto() {
+  const op = document.querySelector(".operacion");
+  op.classList.remove("pop-ok");
+  void op.offsetWidth;
+  op.classList.add("pop-ok");
+}
 
-let d2=
-```
+function verificar() {
+  const dec = document.getElementById("decenas").value || "0";
+  const uni = document.getElementById("unidades").value || "0";
+  const valor = parseInt(dec, 10) * 10 + parseInt(uni, 10);
+
+  if (valor === respuesta) {
+    sonidoBien.currentTime = 0;
+    sonidoBien.play();
+    puntos += 10;
+    progreso++;
+    vidaEnemigo = Math.max(0, vidaEnemigo - 20);
+    document.getElementById("mensaje").innerText = "✅ ¡Correcto! Gran golpe.";
+    document.getElementById("mensaje").className = "correcto";
+    animarAcierto();
+  } else {
+    sonidoMal.currentTime = 0;
+    sonidoMal.play();
+    vidas--;
+    document.getElementById("mensaje").innerText = `❌ Ups... Era ${respuesta}.`;
+    document.getElementById("mensaje").className = "error";
+    animarError();
+  }
+
+  actualizarUI();
+
+  if (vidas <= 0) {
+    clearInterval(timer);
+    setTimeout(() => {
+      alert("Juego terminado. ¡Inténtalo de nuevo!");
+      reiniciarJuego();
+    }, 120);
+    return;
+  }
+
+  if (progreso >= 5) {
+    if (nivel < 3) {
+      nivel++;
+      progreso = 0;
+      vidaEnemigo = 100;
+      document.getElementById("mensaje").innerText = "🚀 ¡Subiste de nivel!";
+      document.getElementById("mensaje").className = "correcto";
+      lanzarConfeti();
+    } else {
+      clearInterval(timer);
+      document.getElementById("medalla").innerText = "🏅 Súper Héroe Matemático";
+      document.getElementById("mensaje").innerText = "🎉 ¡Misión completa!";
+      document.getElementById("mensaje").className = "correcto";
+      lanzarConfeti();
+      return;
+    }
+  }
+
+  generarOperacion();
+}
+
+function actualizarUI() {
+  document.getElementById("puntos").innerText = puntos;
+  document.getElementById("vidas").innerText = vidas;
+  document.getElementById("progreso").innerText = progreso;
+  document.getElementById("vidaEnemigo").style.width = `${vidaEnemigo}%`;
+}
+
+function reiniciarJuego() {
+  nivel = 1;
+  progreso = 0;
+  vidas = 2;
+  puntos = 0;
+  vidaEnemigo = 100;
+  document.getElementById("medalla").innerText = "🎖️ ¡Aún sin medalla!";
+  actualizarUI();
+  generarOperacion();
+  iniciarTimer();
+}
+
+reiniciarJuego();
+</script>
+</body>
+</html>
