@@ -1,233 +1,490 @@
-```html
 <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Misiones Matemáticas</title>
-
 <style>
-
-body{
-font-family: Arial;
-text-align:center;
-background: linear-gradient(135deg,#6dd5ed,#2193b0);
-color:white;
+body {
+  font-family: Arial, sans-serif;
+  text-align: center;
+  background: linear-gradient(135deg, #6dd5ed, #2193b0);
+  color: white;
+  margin: 0;
+  min-height: 100vh;
 }
 
-.container{
-margin-top:30px;
+.container {
+  margin-top: 24px;
+  padding-bottom: 24px;
 }
 
-h1{
-font-size:38px;
+h1 {
+  font-size: 38px;
+  margin-bottom: 10px;
 }
 
-.panel{
-font-size:18px;
-margin:10px;
+.panel {
+  font-size: 18px;
+  margin: 10px;
 }
 
-.operacion{
-display:inline-block;
-background:white;
-color:black;
-padding:20px 40px;
-border-radius:10px;
-font-size:48px;
+.hud-grid {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 14px auto;
 }
 
-table{
-border-collapse:collapse;
+.hud-card {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  padding: 12px 16px;
+  min-width: 270px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.15);
 }
 
-td{
-width:50px;
-text-align:right;
+.hud-card h3 {
+  margin: 0 0 10px;
 }
 
-.linea{
-border-top:4px solid black;
+#listaMisiones {
+  margin: 0;
+  padding-left: 20px;
+  text-align: left;
 }
 
-input{
-width:50px;
-font-size:38px;
-text-align:center;
+.operacion {
+  display: inline-block;
+  background: white;
+  color: black;
+  padding: 20px 40px;
+  border-radius: 10px;
+  font-size: 48px;
 }
 
-button{
-font-size:20px;
-padding:10px 20px;
-border:none;
-border-radius:8px;
-cursor:pointer;
-margin-top:15px;
+table {
+  border-collapse: collapse;
 }
 
-.correcto{color:#00ff9d;}
-.error{color:#ff8080;}
-
-.barra{
-width:300px;
-height:25px;
-background:#333;
-margin:auto;
-border-radius:20px;
-overflow:hidden;
+td {
+  width: 50px;
+  text-align: right;
 }
 
-.vida{
-height:100%;
-background:#ff4c4c;
-width:100%;
-transition:0.3s;
+.linea {
+  border-top: 4px solid black;
 }
 
-.medalla{
-font-size:30px;
-margin-top:10px;
+input {
+  width: 50px;
+  font-size: 38px;
+  text-align: center;
 }
 
+button {
+  font-size: 20px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-top: 15px;
+}
+
+.correcto { color: #00ff9d; }
+.error { color: #ffd4d4; }
+
+.barra {
+  width: 300px;
+  height: 25px;
+  background: #333;
+  margin: auto;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.vida {
+  height: 100%;
+  background: #ff4c4c;
+  width: 100%;
+  transition: 0.3s;
+}
+
+.barra-xp {
+  width: 300px;
+  height: 18px;
+  background: rgba(255,255,255,0.25);
+  margin: 6px auto;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.xp {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, #ffd200, #ff8c00);
+  transition: width 0.4s ease;
+}
+
+.medalla {
+  font-size: 30px;
+  margin-top: 10px;
+}
+
+.nivel-up {
+  display: inline-block;
+  margin-top: 8px;
+  font-weight: bold;
+  color: #ffe66d;
+  opacity: 0;
+  transform: translateY(-8px) scale(0.95);
+}
+
+.nivel-up.show {
+  animation: subirNivel 1s ease;
+}
+
+@keyframes subirNivel {
+  0% { opacity: 0; transform: translateY(-10px) scale(0.9); }
+  30% { opacity: 1; transform: translateY(0) scale(1.05); }
+  100% { opacity: 0; transform: translateY(-6px) scale(1); }
+}
 </style>
 </head>
-
 <body>
-
 <div class="container">
+  <h1>🚀 Misiones Matemáticas</h1>
 
-<h1>🚀 Misiones Matemáticas</h1>
+  <div class="panel">
+    ⭐ Puntos: <span id="puntos">0</span> |
+    ❤️ Vidas: <span id="vidas">2</span> |
+    ⏱ Tiempo: <span id="tiempo">0</span>s
+  </div>
 
-<div class="panel">
-⭐ Puntos: <span id="puntos">0</span> |
-❤️ Vidas: <span id="vidas">2</span> |
-⏱ Tiempo: <span id="tiempo">0</span>s
-</div>
+  <div class="panel">
+    Nivel de operación: <span id="nivel">Sumas</span> |
+    Progreso: <span id="progreso">0</span>/5
+  </div>
 
-<div class="panel">
-Nivel: <span id="nivel">Sumas</span> |
-Progreso: <span id="progreso">0</span>/5
-</div>
+  <div class="hud-grid">
+    <div class="hud-card">
+      <h3>🎒 Estado del jugador</h3>
+      <div>🏅 Nivel jugador: <span id="nivelJugador">1</span></div>
+      <div>⚡ Racha: <span id="racha">0</span></div>
+      <div>🪙 Monedas: <span id="monedas">0</span></div>
+      <div class="barra-xp"><div class="xp" id="barraXP"></div></div>
+      <div>XP: <span id="xpActual">0</span>/<span id="xpObjetivo">100</span></div>
+      <div id="nivelUpMsg" class="nivel-up">¡Subiste de nivel! 🎉</div>
+    </div>
 
-<h2>👾 Enemigo</h2>
+    <div class="hud-card">
+      <h3>📅 Misiones diarias</h3>
+      <ul id="listaMisiones"></ul>
+    </div>
+  </div>
 
-<div class="barra">
-<div class="vida" id="vidaEnemigo"></div>
-</div>
+  <h2>👾 Enemigo</h2>
+  <div class="barra"><div class="vida" id="vidaEnemigo"></div></div>
+  <div class="medalla" id="medalla"></div>
 
-<div class="medalla" id="medalla"></div>
+  <br>
 
-<br>
+  <div class="operacion">
+    <table>
+      <tr>
+        <td></td>
+        <td id="d1"></td>
+        <td id="u1"></td>
+      </tr>
+      <tr>
+        <td id="signo"></td>
+        <td id="d2"></td>
+        <td id="u2"></td>
+      </tr>
+      <tr><td colspan="3" class="linea"></td></tr>
+      <tr>
+        <td></td>
+        <td><input id="decenas"></td>
+        <td><input id="unidades"></td>
+      </tr>
+    </table>
+  </div>
 
-<div class="operacion">
-
-<table>
-
-<tr>
-<td></td>
-<td id="d1"></td>
-<td id="u1"></td>
-</tr>
-
-<tr>
-<td id="signo"></td>
-<td id="d2"></td>
-<td id="u2"></td>
-</tr>
-
-<tr>
-<td colspan="3" class="linea"></td>
-</tr>
-
-<tr>
-<td></td>
-<td><input id="decenas"></td>
-<td><input id="unidades"></td>
-</tr>
-
-</table>
-
-</div>
-
-<br>
-
-<button onclick="verificar()">Responder</button>
-
-<p id="mensaje"></p>
-
+  <br>
+  <button onclick="verificar()">Responder</button>
+  <p id="mensaje"></p>
 </div>
 
 <script>
+let nivel = 1;
+let progreso = 0;
+let vidas = 2;
+let puntos = 0;
+let tiempo = 0;
+let respuesta;
+let vidaEnemigo = 100;
+let aciertosTotales = 0;
+let aciertosSinFallar = 0;
 
-let nivel=1
-let progreso=0
-let vidas=2
-let puntos=0
-let tiempo=0
-let respuesta
-let vidaEnemigo=100
+const XP_POR_NIVEL = 100;
+const STORAGE_KEY = "mathRewardsProgreso";
 
-let timer
+const estadoJugador = {
+  xp: 0,
+  nivelJugador: 1,
+  racha: 0,
+  monedas: 0
+};
 
-const sonidoBien = new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg")
-const sonidoMal = new Audio("https://actions.google.com/sounds/v1/cartoon/boing.ogg")
+const misionesDiarias = [
+  { id: "sinFallar10", texto: "Resuelve 10 operaciones sin fallar", objetivo: 10, progreso: 0, completada: false },
+  { id: "aciertos15", texto: "Logra 15 respuestas correctas", objetivo: 15, progreso: 0, completada: false },
+  { id: "racha5", texto: "Consigue una racha de 5", objetivo: 5, progreso: 0, completada: false }
+];
 
-function iniciarTimer(){
+const sonidoBien = new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg");
+const sonidoMal = new Audio("https://actions.google.com/sounds/v1/cartoon/boing.ogg");
+let timer;
 
-clearInterval(timer)
-
-tiempo=0
-
-timer=setInterval(()=>{
-
-tiempo++
-document.getElementById("tiempo").innerText=tiempo
-
-},1000)
-
+function fechaHoy() {
+  return new Date().toISOString().slice(0, 10);
 }
 
-function generarOperacion(){
+function cargarProgreso() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return;
 
-let a,b,signo
+  try {
+    const data = JSON.parse(raw);
+    if (data.estadoJugador) {
+      Object.assign(estadoJugador, data.estadoJugador);
+    }
+    if (typeof data.nivel === "number") nivel = data.nivel;
+    if (typeof data.puntos === "number") puntos = data.puntos;
 
-if(nivel===1){
-
-document.getElementById("nivel").innerText="Sumas"
-
-a=Math.floor(Math.random()*20)+1
-b=Math.floor(Math.random()*20)+1
-signo="+"
-respuesta=a+b
-
+    if (data.fecha === fechaHoy() && Array.isArray(data.misionesDiarias)) {
+      data.misionesDiarias.forEach(misionGuardada => {
+        const mision = misionesDiarias.find(m => m.id === misionGuardada.id);
+        if (mision) {
+          mision.progreso = misionGuardada.progreso || 0;
+          mision.completada = !!misionGuardada.completada;
+        }
+      });
+    }
+  } catch (e) {
+    console.warn("No se pudo cargar progreso", e);
+  }
 }
 
-else if(nivel===2){
-
-document.getElementById("nivel").innerText="Restas"
-
-a=Math.floor(Math.random()*40)+10
-b=Math.floor(Math.random()*20)+1
-
-if(b>a){let t=a;a=b;b=t}
-
-signo="-"
-respuesta=a-b
-
+function guardarProgreso() {
+  const data = {
+    fecha: fechaHoy(),
+    estadoJugador,
+    nivel,
+    puntos,
+    misionesDiarias
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
-else{
-
-document.getElementById("nivel").innerText="Multiplicaciones"
-
-a=Math.floor(Math.random()*6)+2
-b=Math.floor(Math.random()*6)+2
-signo="×"
-respuesta=a*b
-
+function xpObjetivoActual() {
+  return XP_POR_NIVEL;
 }
 
-let d1=Math.floor(a/10)
-let u1=a%10
+function iniciarTimer() {
+  clearInterval(timer);
+  tiempo = 0;
+  timer = setInterval(() => {
+    tiempo++;
+    document.getElementById("tiempo").innerText = tiempo;
+  }, 1000);
+}
 
-let d2=
-```
+function generarOperacion() {
+  let a, b, signo;
+
+  if (nivel === 1) {
+    document.getElementById("nivel").innerText = "Sumas";
+    a = Math.floor(Math.random() * 20) + 1;
+    b = Math.floor(Math.random() * 20) + 1;
+    signo = "+";
+    respuesta = a + b;
+  } else if (nivel === 2) {
+    document.getElementById("nivel").innerText = "Restas";
+    a = Math.floor(Math.random() * 40) + 10;
+    b = Math.floor(Math.random() * 20) + 1;
+    if (b > a) [a, b] = [b, a];
+    signo = "-";
+    respuesta = a - b;
+  } else {
+    document.getElementById("nivel").innerText = "Multiplicaciones";
+    a = Math.floor(Math.random() * 6) + 2;
+    b = Math.floor(Math.random() * 6) + 2;
+    signo = "×";
+    respuesta = a * b;
+  }
+
+  const d1 = Math.floor(a / 10);
+  const u1 = a % 10;
+  const d2 = Math.floor(b / 10);
+  const u2 = b % 10;
+
+  document.getElementById("d1").innerText = d1 > 0 ? d1 : "";
+  document.getElementById("u1").innerText = u1;
+  document.getElementById("d2").innerText = d2 > 0 ? d2 : "";
+  document.getElementById("u2").innerText = u2;
+  document.getElementById("signo").innerText = signo;
+
+  document.getElementById("decenas").value = "";
+  document.getElementById("unidades").value = "";
+}
+
+function obtenerBonusRacha(racha) {
+  if (racha >= 10) return { xp: 20, monedas: 8, texto: "🔥 Bonus racha x10" };
+  if (racha >= 5) return { xp: 10, monedas: 4, texto: "⚡ Bonus racha x5" };
+  if (racha >= 3) return { xp: 5, monedas: 2, texto: "✨ Bonus racha x3" };
+  return null;
+}
+
+function aplicarXP(cantidad) {
+  estadoJugador.xp += cantidad;
+  while (estadoJugador.xp >= xpObjetivoActual()) {
+    estadoJugador.xp -= xpObjetivoActual();
+    estadoJugador.nivelJugador++;
+    mostrarNivelUp();
+  }
+}
+
+function mostrarNivelUp() {
+  const msg = document.getElementById("nivelUpMsg");
+  msg.classList.remove("show");
+  void msg.offsetWidth;
+  msg.classList.add("show");
+}
+
+function actualizarMisiones(correcto) {
+  const misionSinFallar = misionesDiarias.find(m => m.id === "sinFallar10");
+  const misionAciertos = misionesDiarias.find(m => m.id === "aciertos15");
+  const misionRacha = misionesDiarias.find(m => m.id === "racha5");
+
+  if (correcto) {
+    misionSinFallar.progreso = Math.min(aciertosSinFallar, misionSinFallar.objetivo);
+    misionAciertos.progreso = Math.min(aciertosTotales, misionAciertos.objetivo);
+    misionRacha.progreso = Math.min(estadoJugador.racha, misionRacha.objetivo);
+  } else {
+    misionSinFallar.progreso = 0;
+    misionRacha.progreso = Math.min(estadoJugador.racha, misionRacha.objetivo);
+  }
+
+  misionesDiarias.forEach(m => {
+    m.completada = m.progreso >= m.objetivo;
+  });
+}
+
+function renderMisiones() {
+  const ul = document.getElementById("listaMisiones");
+  ul.innerHTML = "";
+  misionesDiarias.forEach(m => {
+    const li = document.createElement("li");
+    li.textContent = `${m.completada ? "✅" : "⬜"} ${m.texto} (${m.progreso}/${m.objetivo})`;
+    ul.appendChild(li);
+  });
+}
+
+function actualizarHUD() {
+  document.getElementById("puntos").innerText = puntos;
+  document.getElementById("vidas").innerText = vidas;
+  document.getElementById("progreso").innerText = progreso;
+
+  document.getElementById("racha").innerText = estadoJugador.racha;
+  document.getElementById("monedas").innerText = estadoJugador.monedas;
+  document.getElementById("nivelJugador").innerText = estadoJugador.nivelJugador;
+
+  const objetivo = xpObjetivoActual();
+  document.getElementById("xpActual").innerText = estadoJugador.xp;
+  document.getElementById("xpObjetivo").innerText = objetivo;
+  document.getElementById("barraXP").style.width = `${(estadoJugador.xp / objetivo) * 100}%`;
+
+  renderMisiones();
+}
+
+function verificar() {
+  const decenas = parseInt(document.getElementById("decenas").value || "0", 10);
+  const unidades = parseInt(document.getElementById("unidades").value || "0", 10);
+  const respuestaJugador = decenas * 10 + unidades;
+
+  const mensaje = document.getElementById("mensaje");
+
+  if (respuestaJugador === respuesta) {
+    sonidoBien.play();
+    progreso++;
+    puntos += 10;
+    aciertosTotales++;
+    aciertosSinFallar++;
+    estadoJugador.racha++;
+
+    estadoJugador.monedas += 2;
+    aplicarXP(12);
+
+    let textoBonus = "";
+    const bonus = obtenerBonusRacha(estadoJugador.racha);
+    if (bonus && [3, 5, 10].includes(estadoJugador.racha)) {
+      estadoJugador.monedas += bonus.monedas;
+      aplicarXP(bonus.xp);
+      textoBonus = ` + ${bonus.texto}`;
+    }
+
+    vidaEnemigo -= 20;
+    if (vidaEnemigo < 0) vidaEnemigo = 0;
+
+    mensaje.className = "correcto";
+    mensaje.innerText = `¡Correcto! +10 puntos, +2 monedas, +12 XP${textoBonus}`;
+  } else {
+    sonidoMal.play();
+    estadoJugador.racha = 0;
+    aciertosSinFallar = 0;
+
+    puntos = Math.max(0, puntos - 2);
+    estadoJugador.monedas = Math.max(0, estadoJugador.monedas - 1);
+    estadoJugador.xp = Math.max(0, estadoJugador.xp - 4);
+
+    mensaje.className = "error";
+    mensaje.innerText = "Ups, casi. Penalización leve: -2 puntos, -1 moneda y -4 XP. ¡Inténtalo otra vez!";
+  }
+
+  actualizarMisiones(respuestaJugador === respuesta);
+
+  document.getElementById("vidaEnemigo").style.width = `${vidaEnemigo}%`;
+
+  if (vidaEnemigo === 0) {
+    nivel++;
+    if (nivel > 3) {
+      document.getElementById("medalla").innerText = "🏆 ¡Misión completada!";
+      clearInterval(timer);
+      guardarProgreso();
+      actualizarHUD();
+      return;
+    }
+
+    progreso = 0;
+    vidaEnemigo = 100;
+    document.getElementById("vidaEnemigo").style.width = "100%";
+  }
+
+  guardarProgreso();
+  actualizarHUD();
+  generarOperacion();
+}
+
+function iniciarJuego() {
+  cargarProgreso();
+  actualizarHUD();
+  iniciarTimer();
+  generarOperacion();
+}
+
+iniciarJuego();
+</script>
+</body>
+</html>
