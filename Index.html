@@ -1,233 +1,381 @@
-```html
 <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Misiones Matemáticas</title>
-
 <style>
-
 body{
-font-family: Arial;
-text-align:center;
-background: linear-gradient(135deg,#6dd5ed,#2193b0);
-color:white;
+  font-family:Arial,sans-serif;
+  text-align:center;
+  background:linear-gradient(135deg,#6dd5ed,#2193b0);
+  color:white;
+  margin:0;
 }
-
-.container{
-margin-top:30px;
+.container{margin:30px auto;max-width:900px;padding:0 16px;}
+h1{font-size:38px;margin-bottom:12px;}
+.panel{font-size:18px;margin:10px;}
+.control-panel{
+  background:rgba(255,255,255,0.15);
+  border-radius:12px;
+  padding:14px;
+  margin-bottom:14px;
 }
-
-h1{
-font-size:38px;
+select,input,button{
+  font-size:20px;
+  padding:10px 14px;
+  border:none;
+  border-radius:8px;
 }
-
-.panel{
-font-size:18px;
-margin:10px;
-}
-
+input{width:120px;text-align:center;}
+button{cursor:pointer;background:#ffd166;}
+button:disabled{opacity:.55;cursor:not-allowed;}
 .operacion{
-display:inline-block;
-background:white;
-color:black;
-padding:20px 40px;
-border-radius:10px;
-font-size:48px;
+  display:inline-block;
+  background:white;
+  color:black;
+  padding:16px 26px;
+  border-radius:10px;
+  font-size:40px;
+  margin:8px 0;
+  min-width:260px;
 }
-
-table{
-border-collapse:collapse;
-}
-
-td{
-width:50px;
-text-align:right;
-}
-
-.linea{
-border-top:4px solid black;
-}
-
-input{
-width:50px;
-font-size:38px;
-text-align:center;
-}
-
-button{
-font-size:20px;
-padding:10px 20px;
-border:none;
-border-radius:8px;
-cursor:pointer;
-margin-top:15px;
-}
-
 .correcto{color:#00ff9d;}
-.error{color:#ff8080;}
-
+.error{color:#ffb3b3;}
 .barra{
-width:300px;
-height:25px;
-background:#333;
-margin:auto;
-border-radius:20px;
-overflow:hidden;
+  width:320px;
+  height:26px;
+  background:#333;
+  margin:10px auto;
+  border-radius:20px;
+  overflow:hidden;
 }
-
 .vida{
-height:100%;
-background:#ff4c4c;
-width:100%;
-transition:0.3s;
+  height:100%;
+  background:#ff4c4c;
+  width:100%;
+  transition:0.25s;
 }
-
-.medalla{
-font-size:30px;
-margin-top:10px;
+.records{
+  margin-top:20px;
+  background:rgba(0,0,0,0.2);
+  border-radius:12px;
+  padding:14px;
 }
-
+table{width:100%;border-collapse:collapse;font-size:15px;}
+th,td{padding:6px;border-bottom:1px solid rgba(255,255,255,0.15);}
+.modo-bloque{margin-bottom:16px;}
 </style>
 </head>
-
 <body>
-
 <div class="container">
+  <h1>🚀 Misiones Matemáticas</h1>
 
-<h1>🚀 Misiones Matemáticas</h1>
+  <div class="control-panel">
+    <label for="modo">Modo:</label>
+    <select id="modo"></select>
+    <button id="startBtn" onclick="iniciarPartida()">Iniciar partida</button>
+    <p id="unlockHint"></p>
+  </div>
 
-<div class="panel">
-⭐ Puntos: <span id="puntos">0</span> |
-❤️ Vidas: <span id="vidas">2</span> |
-⏱ Tiempo: <span id="tiempo">0</span>s
-</div>
+  <div id="gameArea" style="display:none;">
+    <div class="panel">
+      ⭐ Puntos: <span id="puntos">0</span> |
+      ❤️ Vidas: <span id="vidas">0</span> |
+      ⏱ Tiempo: <span id="tiempo">0</span>s
+    </div>
 
-<div class="panel">
-Nivel: <span id="nivel">Sumas</span> |
-Progreso: <span id="progreso">0</span>/5
-</div>
+    <div class="panel">
+      Modo: <span id="modoActual">-</span> |
+      Dificultad: <span id="nivel">-</span> |
+      Progreso: <span id="progreso">0</span>
+    </div>
 
-<h2>👾 Enemigo</h2>
+    <h2 id="enemigoTitulo">👾 Enemigo</h2>
+    <div class="barra"><div class="vida" id="vidaEnemigo"></div></div>
 
-<div class="barra">
-<div class="vida" id="vidaEnemigo"></div>
-</div>
+    <div class="operacion" id="operacionTexto">0 + 0 = ?</div><br>
+    <input id="respuestaInput" type="number" placeholder="Resultado">
+    <br>
+    <button onclick="verificar()">Responder</button>
+    <p id="mensaje"></p>
+  </div>
 
-<div class="medalla" id="medalla"></div>
-
-<br>
-
-<div class="operacion">
-
-<table>
-
-<tr>
-<td></td>
-<td id="d1"></td>
-<td id="u1"></td>
-</tr>
-
-<tr>
-<td id="signo"></td>
-<td id="d2"></td>
-<td id="u2"></td>
-</tr>
-
-<tr>
-<td colspan="3" class="linea"></td>
-</tr>
-
-<tr>
-<td></td>
-<td><input id="decenas"></td>
-<td><input id="unidades"></td>
-</tr>
-
-</table>
-
-</div>
-
-<br>
-
-<button onclick="verificar()">Responder</button>
-
-<p id="mensaje"></p>
-
+  <div class="records">
+    <h2>🏆 Récords locales por modo</h2>
+    <div id="recordsContainer"></div>
+  </div>
 </div>
 
 <script>
+const MODOS = {
+  aventura: { nombre: "Aventura", descripcion: "Progresivo por misiones" },
+  contrarreloj: { nombre: "Contrarreloj", descripcion: "60 segundos" },
+  jefe: { nombre: "Jefe", descripcion: "Operaciones difíciles y barra de vida" }
+}
 
-let nivel=1
-let progreso=0
-let vidas=2
-let puntos=0
-let tiempo=0
-let respuesta
-let vidaEnemigo=100
+const progresoGlobal = JSON.parse(localStorage.getItem("mathRewardsProgress") || "{\"adventureMissions\":0,\"counterWins\":0}")
+const records = JSON.parse(localStorage.getItem("mathRewardsRecords") || "{\"aventura\":[],\"contrarreloj\":[],\"jefe\":[]}")
 
-let timer
+let estado = {}
+let respuesta = 0
+let timer = null
 
 const sonidoBien = new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg")
 const sonidoMal = new Audio("https://actions.google.com/sounds/v1/cartoon/boing.ogg")
 
+function isModeUnlocked(modo){
+  if(modo === "aventura") return true
+  if(modo === "contrarreloj") return progresoGlobal.adventureMissions >= 3
+  if(modo === "jefe") return progresoGlobal.counterWins >= 1
+  return false
+}
+
+function guardarProgreso(){
+  localStorage.setItem("mathRewardsProgress", JSON.stringify(progresoGlobal))
+}
+
+function guardarRecords(){
+  localStorage.setItem("mathRewardsRecords", JSON.stringify(records))
+}
+
+function cargarSelectorModo(){
+  const select = document.getElementById("modo")
+  select.innerHTML = ""
+
+  Object.keys(MODOS).forEach((key)=>{
+    const option = document.createElement("option")
+    option.value = key
+    option.textContent = `${MODOS[key].nombre} - ${MODOS[key].descripcion}`
+    option.disabled = !isModeUnlocked(key)
+    select.appendChild(option)
+  })
+
+  const primerDesbloqueado = Object.keys(MODOS).find(isModeUnlocked)
+  select.value = primerDesbloqueado || "aventura"
+  actualizarHintDesbloqueo()
+}
+
+function actualizarHintDesbloqueo(){
+  const msg = []
+  if(!isModeUnlocked("contrarreloj")){
+    msg.push(`Para desbloquear Contrarreloj completa 3 misiones de Aventura (${progresoGlobal.adventureMissions}/3).`)
+  }
+  if(!isModeUnlocked("jefe")){
+    msg.push(`Para desbloquear Jefe gana 1 partida de Contrarreloj (${progresoGlobal.counterWins}/1).`)
+  }
+  document.getElementById("unlockHint").innerText = msg.join(" ") || "Todos los modos desbloqueados."
+}
+
+function iniciarPartida(){
+  const modo = document.getElementById("modo").value
+  if(!isModeUnlocked(modo)) return
+
+  clearInterval(timer)
+  document.getElementById("gameArea").style.display = "block"
+
+  estado = {
+    modo,
+    puntos:0,
+    vidas: modo === "jefe" ? 3 : 3,
+    tiempo:0,
+    stage:1,
+    aciertos:0,
+    objetivo:5,
+    enemyHP: modo === "jefe" ? 200 : 100,
+    maxHP: modo === "jefe" ? 200 : 100,
+    progresoTexto:"0"
+  }
+
+  document.getElementById("modoActual").innerText = MODOS[modo].nombre
+  document.getElementById("enemigoTitulo").innerText = modo === "jefe" ? "💀 Jefe Final" : "👾 Enemigo"
+  document.getElementById("respuestaInput").value = ""
+  document.getElementById("mensaje").innerText = ""
+
+  iniciarTimer()
+  actualizarUI()
+  generarOperacion()
+}
+
 function iniciarTimer(){
+  clearInterval(timer)
 
-clearInterval(timer)
+  timer = setInterval(()=>{
+    estado.tiempo++
 
-tiempo=0
+    if(estado.modo === "contrarreloj"){
+      const restante = Math.max(60 - estado.tiempo, 0)
+      document.getElementById("tiempo").innerText = restante
+      if(restante <= 0){
+        terminarPartida("⏰ ¡Tiempo agotado!")
+      }
+      return
+    }
 
-timer=setInterval(()=>{
+    document.getElementById("tiempo").innerText = estado.tiempo
+  },1000)
+}
 
-tiempo++
-document.getElementById("tiempo").innerText=tiempo
-
-},1000)
-
+function randomInt(min,max){
+  return Math.floor(Math.random()*(max-min+1))+min
 }
 
 function generarOperacion(){
+  let a,b,signo,txtNivel
 
-let a,b,signo
+  if(estado.modo === "aventura"){
+    if(estado.stage === 1){ a=randomInt(1,20); b=randomInt(1,20); signo="+"; txtNivel="Sumas"; respuesta=a+b }
+    else if(estado.stage === 2){ a=randomInt(20,70); b=randomInt(1,35); if(b>a){const t=a;a=b;b=t} signo="-"; txtNivel="Restas"; respuesta=a-b }
+    else if(estado.stage === 3){ a=randomInt(3,9); b=randomInt(3,12); signo="×"; txtNivel="Multiplicaciones"; respuesta=a*b }
+    else if(estado.stage === 4){ b=randomInt(2,12); respuesta=randomInt(2,12); a=b*respuesta; signo="÷"; txtNivel="Divisiones exactas" }
+    else { a=randomInt(40,120); b=randomInt(20,80); signo=Math.random()>0.5?"+":"-"; if(signo==="-"&&b>a){const t=a;a=b;b=t} txtNivel="Mixto experto"; respuesta=signo==="+"?a+b:a-b }
+  }
 
-if(nivel===1){
+  if(estado.modo === "contrarreloj"){
+    const tipo = randomInt(1,3)
+    if(tipo===1){a=randomInt(10,99); b=randomInt(10,99); signo="+"; respuesta=a+b; txtNivel="Rápido +"}
+    if(tipo===2){a=randomInt(20,120); b=randomInt(5,70); if(b>a){const t=a;a=b;b=t} signo="-"; respuesta=a-b; txtNivel="Rápido -"}
+    if(tipo===3){a=randomInt(4,12); b=randomInt(3,12); signo="×"; respuesta=a*b; txtNivel="Rápido ×"}
+  }
 
-document.getElementById("nivel").innerText="Sumas"
+  if(estado.modo === "jefe"){
+    const tipo = randomInt(1,4)
+    if(tipo===1){a=randomInt(80,250); b=randomInt(30,160); signo="+"; respuesta=a+b; txtNivel="Élite +"}
+    if(tipo===2){a=randomInt(120,300); b=randomInt(20,180); if(b>a){const t=a;a=b;b=t} signo="-"; respuesta=a-b; txtNivel="Élite -"}
+    if(tipo===3){a=randomInt(11,25); b=randomInt(8,18); signo="×"; respuesta=a*b; txtNivel="Élite ×"}
+    if(tipo===4){b=randomInt(3,15); respuesta=randomInt(8,30); a=b*respuesta; signo="÷"; txtNivel="Élite ÷"}
+  }
 
-a=Math.floor(Math.random()*20)+1
-b=Math.floor(Math.random()*20)+1
-signo="+"
-respuesta=a+b
-
+  document.getElementById("nivel").innerText = txtNivel
+  document.getElementById("operacionTexto").innerText = `${a} ${signo} ${b} = ?`
+  document.getElementById("respuestaInput").focus()
 }
 
-else if(nivel===2){
+function verificar(){
+  const valor = Number(document.getElementById("respuestaInput").value)
+  const msg = document.getElementById("mensaje")
 
-document.getElementById("nivel").innerText="Restas"
+  if(Number.isNaN(valor)) return
 
-a=Math.floor(Math.random()*40)+10
-b=Math.floor(Math.random()*20)+1
+  if(valor === respuesta){
+    sonidoBien.play()
+    estado.aciertos++
 
-if(b>a){let t=a;a=b;b=t}
+    const recompensa = estado.modo === "aventura" ? (10 + estado.stage * 5) : (estado.modo === "contrarreloj" ? 8 : 20)
+    const danio = estado.modo === "aventura" ? (15 + estado.stage * 5) : (estado.modo === "contrarreloj" ? 10 : 14)
 
-signo="-"
-respuesta=a-b
+    estado.puntos += recompensa
+    estado.enemyHP = Math.max(estado.enemyHP - danio,0)
 
+    msg.className = "correcto"
+    msg.innerText = `✅ Correcto (+${recompensa} puntos)`
+
+    if(estado.modo === "aventura"){
+      estado.progresoTexto = `${estado.aciertos}/${estado.objetivo}`
+      if(estado.aciertos >= estado.objetivo){
+        progresoGlobal.adventureMissions++
+        guardarProgreso()
+        estado.stage++
+        estado.aciertos = 0
+        estado.enemyHP = estado.maxHP
+        msg.innerText = `🎯 Misión completada. Pasas a la misión ${estado.stage}.`
+      }
+    }
+
+    if(estado.modo === "jefe" && estado.enemyHP <= 0){
+      terminarPartida("🏆 ¡Has derrotado al Jefe!")
+      return
+    }
+
+  }else{
+    sonidoMal.play()
+    estado.vidas--
+    msg.className = "error"
+    msg.innerText = `❌ Incorrecto. Respuesta correcta: ${respuesta}`
+  }
+
+  if(estado.vidas <= 0){
+    terminarPartida("💥 Fin de la partida")
+    return
+  }
+
+  if(estado.modo !== "jefe" && estado.enemyHP <= 0){
+    estado.enemyHP = estado.maxHP
+  }
+
+  if(estado.modo === "contrarreloj"){
+    estado.progresoTexto = `${estado.aciertos} aciertos`
+  }
+
+  actualizarUI()
+  document.getElementById("respuestaInput").value = ""
+  generarOperacion()
 }
 
-else{
+function terminarPartida(texto){
+  clearInterval(timer)
+  const detalle = estado.modo === "contrarreloj" ? `Aciertos: ${estado.aciertos}` : `Tiempo: ${estado.tiempo}s`
 
-document.getElementById("nivel").innerText="Multiplicaciones"
+  if(estado.modo === "contrarreloj" && estado.puntos >= 80){
+    progresoGlobal.counterWins++
+    guardarProgreso()
+  }
 
-a=Math.floor(Math.random()*6)+2
-b=Math.floor(Math.random()*6)+2
-signo="×"
-respuesta=a*b
-
+  guardarRecord(estado.modo, estado.puntos, detalle)
+  actualizarUI()
+  document.getElementById("mensaje").className = ""
+  document.getElementById("mensaje").innerText = `${texto} | Puntos: ${estado.puntos}`
+  cargarSelectorModo()
+  renderRecords()
 }
 
-let d1=Math.floor(a/10)
-let u1=a%10
+function guardarRecord(modo,puntos,detalle){
+  records[modo].push({puntos,detalle,fecha:new Date().toLocaleDateString()})
+  records[modo] = records[modo]
+    .sort((a,b)=>b.puntos-a.puntos)
+    .slice(0,5)
+  guardarRecords()
+}
 
-let d2=
-```
+function renderRecords(){
+  const c = document.getElementById("recordsContainer")
+  c.innerHTML = ""
+
+  Object.keys(MODOS).forEach((modo)=>{
+    const bloque = document.createElement("div")
+    bloque.className = "modo-bloque"
+    const rows = records[modo]
+      .map((r,i)=>`<tr><td>${i+1}</td><td>${r.puntos}</td><td>${r.detalle}</td><td>${r.fecha}</td></tr>`)
+      .join("") || '<tr><td colspan="4">Sin récords aún</td></tr>'
+
+    bloque.innerHTML = `
+      <h3>${MODOS[modo].nombre}</h3>
+      <table>
+        <tr><th>#</th><th>Puntos</th><th>Detalle</th><th>Fecha</th></tr>
+        ${rows}
+      </table>
+    `
+    c.appendChild(bloque)
+  })
+}
+
+function actualizarUI(){
+  document.getElementById("puntos").innerText = estado.puntos ?? 0
+  document.getElementById("vidas").innerText = estado.vidas ?? 0
+
+  if(estado.modo === "contrarreloj"){
+    document.getElementById("tiempo").innerText = Math.max(60 - (estado.tiempo || 0),0)
+  }else{
+    document.getElementById("tiempo").innerText = estado.tiempo ?? 0
+  }
+
+  document.getElementById("progreso").innerText = estado.progresoTexto || "0"
+  const hp = estado.maxHP ? (estado.enemyHP / estado.maxHP) * 100 : 100
+  document.getElementById("vidaEnemigo").style.width = `${Math.max(hp,0)}%`
+}
+
+cargarSelectorModo()
+renderRecords()
+</script>
+</body>
+</html>
