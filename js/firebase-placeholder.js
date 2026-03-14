@@ -8,7 +8,8 @@ import {
   collection,
   query,
   orderBy,
-  serverTimestamp
+  serverTimestamp,
+  addDoc
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -79,6 +80,18 @@ function getActivePlayer() {
   return activePlayerId;
 }
 
+
+async function logLogin({ playerId }) {
+  const targetPlayer = playerId || getActivePlayer();
+  await addDoc(collection(db, 'players', targetPlayer, 'logins'), {
+    timestamp: serverTimestamp(),
+    clientDate: new Date().toISOString(),
+    userAgent: navigator.userAgent,
+    platform: navigator.platform || 'unknown',
+    language: navigator.language || 'es-MX'
+  });
+}
+
 async function save(path, data) {
   const playerId = getActivePlayer();
   const nowIso = new Date().toISOString();
@@ -122,7 +135,9 @@ async function saveAttempt(payload) {
     totalAttempts: payload.totalAttempts || 0,
     correct: payload.correct || 0,
     wrong: payload.wrong || 0,
-    durationMs: payload.durationMs || 0
+    durationMs: payload.durationMs || 0,
+    device: payload.device || {},
+    clientDate: payload.clientDate || new Date().toISOString()
   }, { merge: true });
 
   await setDoc(doc(db, 'players', playerId, 'sessions', sessionId, 'attempts', attemptId), {
@@ -132,6 +147,8 @@ async function saveAttempt(payload) {
     isCorrect: Boolean(payload.isCorrect),
     timeMs: payload.timeMs || 0,
     difficulty: payload.difficulty || 'normal',
+    device: payload.device || {},
+    clientDate: payload.clientDate || new Date().toISOString(),
     timestamp: serverTimestamp()
   }, { merge: true });
 
@@ -153,7 +170,8 @@ window.FirebasePlaceholder = {
   ensureDefaultPlayers,
   listPlayers,
   setActivePlayer,
-  getActivePlayer
+  getActivePlayer,
+  logLogin
 };
 
 window.dispatchEvent(new CustomEvent('firebase-ready'));
