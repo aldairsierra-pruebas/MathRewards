@@ -7,6 +7,17 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <div id="loginOverlay" class="overlay">
+    <div class="overlay-card">
+      <h2>👋 ¡Bienvenido!</h2>
+      <p>Selecciona tu perfil para comenzar la misión.</p>
+      <label for="overlayPlayerSelect">Jugador</label>
+      <select id="overlayPlayerSelect"></select>
+      <button id="btnIngresar">Ingresar</button>
+      <small id="overlayStatus">Cargando jugadores...</small>
+    </div>
+  </div>
+
   <div class="container">
     <header class="hud">
       <h1>🚀 Misiones Matemáticas</h1>
@@ -23,15 +34,25 @@
       <section class="left">
         <div class="card combate">
           <h2>👾 Enemigo</h2>
+          <div class="categoria-progreso">
+            <strong id="categoriaTxt">Sumas</strong>
+            <div class="barra progreso-barra"><div id="progresoNivelFill" class="progreso-nivel-fill"></div></div>
+          </div>
           <div class="barra"><div id="vidaEnemigo" class="vida"></div></div>
+          <div class="vidas-ui" id="vidasUI" aria-label="Oportunidades restantes"></div>
           <div id="mensaje" class="mensaje"></div>
+
+          <div class="start-wrap">
+            <button id="btnIniciar" class="btn-iniciar">Iniciar</button>
+            <div id="countdown" class="countdown" aria-live="polite"></div>
+          </div>
 
           <div class="operacion" id="panelOperacion">
             <table>
               <tr><td></td><td id="d1"></td><td id="u1"></td></tr>
               <tr><td id="signo"></td><td id="d2"></td><td id="u2"></td></tr>
               <tr><td colspan="3" class="linea"></td></tr>
-              <tr><td></td><td><input id="decenas" inputmode="numeric" maxlength="2"></td><td><input id="unidades" inputmode="numeric" maxlength="2"></td></tr>
+              <tr><td></td><td><input id="decenas" inputmode="numeric" maxlength="1"></td><td><input id="unidades" inputmode="numeric" maxlength="1" value="0"></td></tr>
             </table>
           </div>
 
