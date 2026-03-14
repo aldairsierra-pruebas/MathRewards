@@ -55,7 +55,16 @@
 
         <div class="card panel-config">
           <h3>⚙️ Guardado</h3>
-          <p>Se guarda localmente y hay un archivo firebase placeholder para integrar.</p>
+          <p>Se guarda localmente y en Firestore (si está disponible).</p>
+          <div style="display:grid;gap:8px;margin-bottom:10px;">
+            <label for="playerSelect">Jugador activo</label>
+            <select id="playerSelect"></select>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button id="btnSetPlayer">Confirmar jugador</button>
+              <button id="btnRefreshPlayers" type="button">Recargar jugadores</button>
+            </div>
+            <small id="playerStatus">Inicializando jugadores...</small>
+          </div>
           <button id="btnExport">Exportar progreso (JSON)</button>
         </div>
 
@@ -67,12 +76,12 @@
     </main>
 
     <footer style="text-align:center;margin:18px 0;color:#fff8;">
-      Hecho para 2° primaria · Guarda en Firebase: edita <code>firebase-config.js</code>
+      Hecho para 2° primaria · Guarda en Firebase: configuración en <code>js/firebase-placeholder.js</code>
     </footer>
   </div>
 
 <script src="js/gameEngine.js"></script>
 <script src="js/storage.js"></script>
-<script src="js/firebase-placeholder.js"></script>
+<script type="module" src="js/firebase-placeholder.js"></script>
 </body>
 </html>

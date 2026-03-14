@@ -23,7 +23,13 @@
     timer: null,
     time:0,
     lastQuestionCreatedAt: Date.now(),
-    medals: []
+    medals: [],
+    sessionId: null,
+    sessionStartedAt: Date.now(),
+    totalAttempts: 0,
+    totalCorrect: 0,
+    totalWrong: 0,
+    totalTimeMs: 0
   };
 
   // sounds
@@ -60,6 +66,13 @@
 
   // question generator based on level
   let currentAnswer = 0;
+  let currentQuestionLabel = '';
+  function buildSessionId(){
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2,'0');
+    return `s_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+  }
+
   function generateQuestion(){
     clearInterval(state.timer);
     state.time = 0;
@@ -71,17 +84,20 @@
       b = rand(1,20);
       currentAnswer = a+b;
       els.signo.innerText = '+';
+      currentQuestionLabel = `${a} + ${b}`;
     } else if(lvl.type === 'sub'){
       a = rand(10,50);
       b = rand(1,30);
       if(b>a){ [a,b]=[b,a]; }
       currentAnswer = a-b;
       els.signo.innerText = '-';
+      currentQuestionLabel = `${a} - ${b}`;
     } else {
       a = rand(2,6);
       b = rand(2,6);
       currentAnswer = a*b;
       els.signo.innerText = '×';
+      currentQuestionLabel = `${a} × ${b}`;
     }
     els.d1.innerText = Math.floor(a/10) || '';
     els.u1.innerText = a%10;
@@ -130,7 +146,13 @@
     state = {
       levelIndex:0, questionCount:0, attemptsLeft: config.levels[0].attempts,
       points:0, lives:2, xp:0, xpTarget:100, enemyHP:100, timer:null, time:0,
-      lastQuestionCreatedAt: Date.now(), medals: []
+      lastQuestionCreatedAt: Date.now(), medals: [],
+      sessionId: buildSessionId(),
+      sessionStartedAt: Date.now(),
+      totalAttempts: 0,
+      totalCorrect: 0,
+      totalWrong: 0,
+      totalTimeMs: 0
     };
     updateHUD();
     generateQuestion();
@@ -143,6 +165,8 @@
     const answer = dec*10 + uni;
     clearInterval(state.timer); // stop timer for current question
     const spent = state.time;
+    state.totalAttempts++;
+    state.totalTimeMs += spent * 1000;
     if(answer === currentAnswer){
       sGood.currentTime = 0; sGood.play();
       // points: base + time bonus (faster -> more)
@@ -151,6 +175,7 @@
       state.points += gained;
       state.enemyHP = Math.max(0, state.enemyHP - Math.round(100/config.levels[state.levelIndex].questions));
       state.questionCount++;
+      state.totalCorrect++;
       // speed medal
       if(spent <= 3){ giveMedal('Velocidad'); }
       // XP and racha simplified
@@ -182,6 +207,7 @@
       els.mensaje.innerText = `❌ Incorrecto — la respuesta era ${currentAnswer}`;
       // small penalty
       state.points = Math.max(0, state.points - 2);
+      state.totalWrong++;
       // if attempts for level exhausted -> reset level progress
       if(state.attemptsLeft <= 0){
         els.mensaje.innerText += ' — Perdiste las oportunidades de este nivel, se reinicia nivel.';
@@ -197,12 +223,15 @@
     }
     updateHUD();
     saveLocal();
+    saveAttempt(answer, spent, answer === currentAnswer);
     // next question after small delay
     setTimeout(()=> generateQuestion(), 900);
   }
 
   // skip question (counts as an attempt use)
   function skipQuestion(){
+    state.totalAttempts++;
+    state.totalWrong++;
     state.attemptsLeft--;
     els.mensaje.innerText = '⏭ Pregunta saltada, una oportunidad menos.';
     if(state.attemptsLeft <= 0){
@@ -213,7 +242,29 @@
     }
     updateHUD();
     saveLocal();
+    saveAttempt(null, state.time, false, true);
     setTimeout(()=> generateQuestion(), 700);
+  }
+
+  function saveAttempt(answer, spentSeconds, isCorrect, skipped){
+    if(window.AppStorage && typeof window.AppStorage.saveAttempt === 'function'){
+      window.AppStorage.saveAttempt({
+        sessionId: state.sessionId,
+        attemptNumber: state.totalAttempts,
+        question: skipped ? `${currentQuestionLabel} (saltada)` : currentQuestionLabel,
+        expectedAnswer: currentAnswer,
+        userAnswer: skipped ? -1 : answer,
+        isCorrect,
+        timeMs: (spentSeconds || 0) * 1000,
+        difficulty: config.levels[state.levelIndex]?.name || 'general',
+        mode: config.levels[state.levelIndex]?.type || 'general',
+        totalAttempts: state.totalAttempts,
+        correct: state.totalCorrect,
+        wrong: state.totalWrong,
+        durationMs: Date.now() - state.sessionStartedAt,
+        points: state.points
+      });
+    }
   }
 
   // local persistence helpers (uses storage.js API if present)
@@ -246,6 +297,7 @@
 
   // start
   updateHUD();
+  state.sessionId = buildSessionId();
   generateQuestion();
 
   // expose for debug
