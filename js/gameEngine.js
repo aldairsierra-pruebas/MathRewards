@@ -218,7 +218,10 @@
 
     if(els.insByCategory){
       const byCat = insights.byCategory || {};
-      const rows = Object.entries(byCat).map(([k,v])=>`${k}: ${v.correct || 0}/${v.attempts || 0} · HS ${v.highScore || 0}`);
+      const labels = { add:'Sumas', sub:'Restas', mul:'Multiplicaciones' };
+      const rows = Object.entries(byCat)
+        .filter(([k])=>['add','sub','mul'].includes(k))
+        .map(([k,v])=>`${labels[k]}: ${v.correct || 0}/${v.attempts || 0} · HS ${v.highScore || 0}`);
       els.insByCategory.innerHTML = rows.length ? rows.map((r)=>`<div>${r}</div>`).join('') : 'Sin datos';
     }
 

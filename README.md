@@ -25,6 +25,9 @@ Comportamiento actual:
 - Solo mantiene en local el último usuario seleccionado (TTL de 2 días) para dejarlo preseleccionado al entrar; al vencer, vuelve a pedir selección.
 - Guarda:
   - resumen rápido en `players/{playerId}/stats/summary`
+  - resumen por día/categoría/hora inicio en `players/{playerId}/stats/summary/by_day/{YYYY-MM-DD}/categorias/{Sumas|Restas|Multiplicaciones}/by_start_hour/{sessionId}`
+    - `resumen`: intentos, correctas, erróneas, score alto y promedio
+    - `correctas[]` y `erroneas[]`: problema, respuesta de usuario y métricas de tiempo
   - sesión en `players/{playerId}/sessions/{sessionId}`
   - intentos en `players/{playerId}/sessions/{sessionId}/attempts/{attemptId}`
   - snapshot en `players/{playerId}/snapshots/latest`
