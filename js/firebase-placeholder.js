@@ -26,8 +26,9 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const DEFAULT_PLAYERS = [
-  { id: 'PR_1', displayName: 'PR_1', avatar: 'robot-1' },
-  { id: 'PR_2', displayName: 'PR_2', avatar: 'robot-2' }
+  { id: 'Isaac', displayName: 'Isaac', avatar: 'robot-1' },
+  { id: 'Mateo', displayName: 'Mateo', avatar: 'robot-2' },
+  { id: 'Pruebas', displayName: 'Pruebas', avatar: 'robot-3' }
 ];
 
 let activePlayerId = localStorage.getItem('misiones_active_player') || 'PR_1';
