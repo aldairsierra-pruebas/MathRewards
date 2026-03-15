@@ -2,12 +2,13 @@
 (function(){
   const config = {
     levels: [
-      { id:1, name:'Sumas', type:'add', questions:5, attempts:2 },
-      { id:2, name:'Restas', type:'sub', questions:5, attempts:2 },
-      { id:3, name:'Multiplicaciones', type:'mul', questions:5, attempts:2 }
+      { id:1, name:'Sumas', type:'add', questions:5, attempts:2, timeLimitSec:45 },
+      { id:2, name:'Restas', type:'sub', questions:5, attempts:2, timeLimitSec:30 },
+      { id:3, name:'Multiplicaciones', type:'mul', questions:5, attempts:2, timeLimitSec:30 }
     ],
     basePoints: 10,
-    timeBonusMax: 10
+    timeBonusMax: 10,
+    maxLives: 2
   };
 
   let state = {
@@ -15,10 +16,9 @@
     questionCount:0,
     attemptsLeft: config.levels[0].attempts,
     points:0,
-    lives:2,
+    lives:config.maxLives,
     xp:0,
     xpTarget:100,
-    enemyHP:100,
     timer: null,
     time:0,
     lastQuestionCreatedAt: Date.now(),
@@ -54,15 +54,12 @@
     tiempo: document.getElementById('tiempo'),
     nivelTxt: document.getElementById('nivelTxt'),
     categoriaTxt: document.getElementById('categoriaTxt'),
-    progreso: document.getElementById('progreso'),
     progresoNivelFill: document.getElementById('progresoNivelFill'),
-    vidaEnemigo: document.getElementById('vidaEnemigo'),
     mensaje: document.getElementById('mensaje'),
     medalla: document.getElementById('medalla'),
     xpFill: document.getElementById('xpFill'),
     xpText: document.getElementById('xp'),
     xpTarget: document.getElementById('xpTarget'),
-    panelQuick: document.getElementById('panelQuick'),
     panelOperacion: document.getElementById('panelOperacion'),
     countdown: document.getElementById('countdown'),
     overlay: document.getElementById('loginOverlay'),
@@ -100,11 +97,15 @@
     els.uni.disabled = !enabled;
   }
 
+  function getCurrentLevel(){
+    return config.levels[state.levelIndex];
+  }
+
   function generateQuestion(){
     clearInterval(state.timer);
     state.time = 0;
     els.tiempo.innerText = '0';
-    const lvl = config.levels[state.levelIndex];
+    const lvl = getCurrentLevel();
     let a,b;
     if(lvl.type === 'add'){
       a = rand(1,20);
@@ -137,11 +138,12 @@
     els.panelOperacion.classList.add('disabled-panel');
     els.btnIniciar.disabled = false;
     els.countdown.innerText = '';
+    updateHUD();
   }
 
   function updateHearts(animatedLostIndex){
     els.vidasUI.innerHTML = '';
-    for(let i = 0; i < 2; i++){
+    for(let i = 0; i < config.maxLives; i++){
       const heart = document.createElement('span');
       heart.className = `heart ${i < state.lives ? 'alive' : 'lost'}`;
       heart.innerText = '❤';
@@ -153,18 +155,16 @@
   }
 
   function updateHUD(){
-    const lvl = config.levels[state.levelIndex];
+    const lvl = getCurrentLevel();
+    const currentProgress = state.questionCount + 1;
     els.puntos.innerText = state.points;
     els.vidas.innerText = state.lives;
-    els.progreso.innerText = state.questionCount + '/' + lvl.questions;
-    els.vidaEnemigo.style.width = Math.max(0, state.enemyHP) + '%';
     els.nivelTxt.innerText = lvl.name;
-    els.categoriaTxt.innerText = lvl.name;
+    els.categoriaTxt.innerText = `${lvl.name} (${Math.min(currentProgress, lvl.questions)}/${lvl.questions})`;
     els.progresoNivelFill.style.width = `${(state.questionCount / lvl.questions) * 100}%`;
     els.xpText.innerText = state.xp;
     els.xpTarget.innerText = state.xpTarget;
     els.xpFill.style.width = Math.min(100, (state.xp/state.xpTarget)*100) + '%';
-    els.panelQuick.innerText = `Nivel ${lvl.name} — Medallas: ${state.medals.join(', ') || 'ninguna'}`;
     updateHearts();
   }
 
@@ -185,7 +185,7 @@
   function resetAll(){
     state = {
       levelIndex:0, questionCount:0, attemptsLeft: config.levels[0].attempts,
-      points:0, lives:2, xp:0, xpTarget:100, enemyHP:100, timer:null, time:0,
+      points:0, lives:config.maxLives, xp:0, xpTarget:100, timer:null, time:0,
       lastQuestionCreatedAt: Date.now(), medals: [],
       sessionId: buildSessionId(),
       sessionStartedAt: Date.now(),
@@ -197,6 +197,13 @@
     };
     updateHUD();
     generateQuestion();
+  }
+
+  function handleTimeLimit(){
+    const lvl = getCurrentLevel();
+    if(state.time < lvl.timeLimitSec){ return; }
+    clearInterval(state.timer);
+    applyWrongAnswer(`⌛ Se acabó el tiempo (${lvl.timeLimitSec}s). La respuesta era ${currentAnswer}`, state.time);
   }
 
   function startCountdown(){
@@ -230,6 +237,7 @@
         state.timer = setInterval(()=>{
           state.time++;
           els.tiempo.innerText = state.time;
+          handleTimeLimit();
         },1000);
       }, 500);
     };
@@ -237,27 +245,57 @@
     tick();
   }
 
+  function applyWrongAnswer(baseMessage, spentSeconds){
+    const lostIndex = state.lives - 1;
+    state.lives--;
+    state.attemptsLeft--;
+    state.totalWrong++;
+    state.totalAttempts++;
+    state.totalTimeMs += (spentSeconds || 0) * 1000;
+    sBad.currentTime = 0; sBad.play();
+    sLifeLost.currentTime = 0; sLifeLost.play().catch(()=>{});
+    updateHearts(lostIndex);
+    els.mensaje.innerText = baseMessage;
+    state.points = Math.max(0, state.points - 2);
+
+    if(state.attemptsLeft <= 0){
+      els.mensaje.innerText += ' — Perdiste las oportunidades de este nivel, se reinicia nivel.';
+      state.questionCount = 0;
+      state.attemptsLeft = getCurrentLevel().attempts;
+    }
+
+    if(state.lives <= 0){
+      endGame('💥 Te quedaste sin vidas');
+      return;
+    }
+
+    updateHUD();
+    saveLocal();
+    saveAttempt(null, spentSeconds, false);
+    setTimeout(()=> generateQuestion(), 900);
+  }
+
   function verifyAnswer(){
     if(!state.isReadyToAnswer){
       els.mensaje.innerText = 'Presiona "Iniciar" para comenzar.';
       return;
     }
+    clearInterval(state.timer);
     const dec = parseInt(els.dec.value || '0',10);
     const uni = parseInt(els.uni.value || '0',10);
     const answer = dec*10 + uni;
-    clearInterval(state.timer);
     const spent = state.time;
-    state.totalAttempts++;
-    state.totalTimeMs += spent * 1000;
 
     if(answer === currentAnswer){
+      state.totalAttempts++;
+      state.totalTimeMs += spent * 1000;
+      state.totalCorrect++;
       sGood.currentTime = 0; sGood.play();
       const bonus = Math.max(0, config.timeBonusMax - spent);
       const gained = config.basePoints + bonus;
       state.points += gained;
-      state.enemyHP = Math.max(0, state.enemyHP - Math.round(100/config.levels[state.levelIndex].questions));
       state.questionCount++;
-      state.totalCorrect++;
+
       if(spent <= 3){ giveMedal('Velocidad'); }
       state.xp += 12 + Math.floor(bonus/2);
       if(state.xp >= state.xpTarget){
@@ -265,45 +303,28 @@
         state.xpTarget = Math.round(state.xpTarget * 1.25);
         giveMedal('SubisteNivel');
       }
+
       els.mensaje.innerText = `✅ Correcto! +${gained} pts (tiempo ${spent}s)`;
-      if(state.questionCount >= config.levels[state.levelIndex].questions){
+
+      if(state.questionCount >= getCurrentLevel().questions){
         state.levelIndex++;
         state.questionCount = 0;
-        state.attemptsLeft = config.levels[Math.min(state.levelIndex, config.levels.length-1)].attempts || 2;
-        state.enemyHP = 100;
         if(state.levelIndex >= config.levels.length){
           endGame('🎉 ¡Misión completa!');
           return;
         }
+        state.attemptsLeft = getCurrentLevel().attempts;
         els.mensaje.innerText += ' 🚀 Subiste de nivel!';
       }
-    } else {
-      sBad.currentTime = 0; sBad.play();
-      const lostIndex = state.lives - 1;
-      state.lives--;
-      state.attemptsLeft--;
-      sLifeLost.currentTime = 0;
-      sLifeLost.play().catch(()=>{});
-      updateHearts(lostIndex);
-      els.mensaje.innerText = `❌ Incorrecto — la respuesta era ${currentAnswer}`;
-      state.points = Math.max(0, state.points - 2);
-      state.totalWrong++;
-      if(state.attemptsLeft <= 0){
-        els.mensaje.innerText += ' — Perdiste las oportunidades de este nivel, se reinicia nivel.';
-        state.questionCount = 0;
-        state.attemptsLeft = config.levels[state.levelIndex].attempts;
-        state.enemyHP = 100;
-      }
-      if(state.lives <= 0){
-        endGame('💥 Te quedaste sin vidas');
-        return;
-      }
+
+      updateHUD();
+      saveLocal();
+      saveAttempt(answer, spent, true);
+      setTimeout(()=> generateQuestion(), 900);
+      return;
     }
 
-    updateHUD();
-    saveLocal();
-    saveAttempt(answer, spent, answer === currentAnswer);
-    setTimeout(()=> generateQuestion(), 900);
+    applyWrongAnswer(`❌ Incorrecto — la respuesta era ${currentAnswer}`, spent);
   }
 
   function skipQuestion(){
@@ -319,8 +340,7 @@
     if(state.attemptsLeft <= 0){
       els.mensaje.innerText += ' — Sin oportunidades, se reinicia nivel.';
       state.questionCount = 0;
-      state.attemptsLeft = config.levels[state.levelIndex].attempts;
-      state.enemyHP = 100;
+      state.attemptsLeft = getCurrentLevel().attempts;
     }
     updateHUD();
     saveLocal();
@@ -338,8 +358,8 @@
         userAnswer: skipped ? -1 : answer,
         isCorrect,
         timeMs: (spentSeconds || 0) * 1000,
-        difficulty: config.levels[state.levelIndex]?.name || 'general',
-        mode: config.levels[state.levelIndex]?.type || 'general',
+        difficulty: getCurrentLevel()?.name || 'general',
+        mode: getCurrentLevel()?.type || 'general',
         totalAttempts: state.totalAttempts,
         correct: state.totalCorrect,
         wrong: state.totalWrong,
@@ -364,10 +384,6 @@
         medals: state.medals,
         date: new Date().toISOString()
       });
-    } else {
-      localStorage.setItem('misiones_state', JSON.stringify({
-        points: state.points, xp: state.xp, levelIndex: state.levelIndex, medals: state.medals
-      }));
     }
   }
 
@@ -376,14 +392,28 @@
     setGameControlsEnabled(false);
 
     const syncOverlayPlayers = async ()=>{
-      if(!window.AppStorage || !window.AppStorage.syncPlayersUI){
-        return;
+      try {
+        if(window.FirebasePlaceholder){
+          await window.FirebasePlaceholder.ensureDefaultPlayers();
+          const players = await window.FirebasePlaceholder.listPlayers();
+          els.overlayPlayerSelect.innerHTML = '';
+          players.forEach((p)=>{
+            const option = document.createElement('option');
+            option.value = p.id;
+            option.textContent = `${p.id}${p.displayName && p.displayName !== p.id ? ` (${p.displayName})` : ''}`;
+            els.overlayPlayerSelect.appendChild(option);
+          });
+          const active = window.FirebasePlaceholder.getActivePlayer();
+          els.overlayPlayerSelect.value = players.some((p)=>p.id===active) ? active : (players[0]?.id || 'PR_1');
+        } else {
+          els.overlayPlayerSelect.innerHTML = '<option value="PR_1">PR_1</option><option value="PR_2">PR_2</option>';
+        }
+        els.overlayStatus.innerText = 'Selecciona y presiona Ingresar';
+      } catch (error) {
+        console.warn('No se pudieron cargar jugadores remotos, se usa local.', error);
+        els.overlayPlayerSelect.innerHTML = '<option value="PR_1">PR_1</option><option value="PR_2">PR_2</option>';
+        els.overlayStatus.innerText = 'Sin conexión a Firestore, usando jugadores locales';
       }
-      await window.AppStorage.syncPlayersUI();
-      const baseSelect = document.getElementById('playerSelect');
-      els.overlayPlayerSelect.innerHTML = baseSelect.innerHTML;
-      els.overlayPlayerSelect.value = baseSelect.value;
-      els.overlayStatus.innerText = 'Selecciona y presiona Ingresar';
     };
 
     els.btnIngresar.addEventListener('click', async ()=>{
@@ -394,10 +424,12 @@
       }
       if(window.FirebasePlaceholder){
         window.FirebasePlaceholder.setActivePlayer(selected);
-        await window.FirebasePlaceholder.logLogin({ playerId: selected });
+        try {
+          await window.FirebasePlaceholder.logLogin({ playerId: selected });
+        } catch (error) {
+          console.warn('No se pudo registrar login en Firestore.', error);
+        }
       }
-      const baseSelect = document.getElementById('playerSelect');
-      if(baseSelect){ baseSelect.value = selected; }
       els.overlay.classList.add('hidden');
       els.mensaje.innerText = `Hola ${selected}, presiona Iniciar para arrancar.`;
     });
@@ -411,14 +443,6 @@
   els.btnIniciar.addEventListener('click', startCountdown);
   sanitizeDigitInput(els.dec);
   sanitizeDigitInput(els.uni);
-
-  document.getElementById('btnExport').addEventListener('click', ()=>{
-    const data = { points: state.points, xp: state.xp, medals: state.medals, date:new Date().toISOString() };
-    const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'progreso_misones.json'; document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
-  });
 
   updateHUD();
   state.sessionId = buildSessionId();
