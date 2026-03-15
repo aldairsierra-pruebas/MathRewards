@@ -31,7 +31,7 @@ const DEFAULT_PLAYERS = [
   { id: 'Pruebas', displayName: 'Pruebas', avatar: 'robot-3' }
 ];
 
-let activePlayerId = localStorage.getItem('misiones_active_player') || 'PR_1';
+let activePlayerId = DEFAULT_PLAYERS[0].id;
 
 function makeSessionId() {
   const d = new Date();
@@ -75,7 +75,6 @@ async function listPlayers() {
 
 function setActivePlayer(playerId) {
   activePlayerId = playerId;
-  localStorage.setItem('misiones_active_player', playerId);
 }
 
 function getActivePlayer() {

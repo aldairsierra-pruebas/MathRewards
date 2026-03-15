@@ -58,7 +58,7 @@
     totalTimeMs:0,
     isReadyToAnswer:false,
     hasStarted:false,
-    playerId:'PR_1',
+    playerId:'Isaac',
     perLevelAdaptiveOffset: { add:0, sub:0, mul:0 },
     recentResults: { add:[], sub:[], mul:[] },
     currentMetrics:null,
@@ -579,7 +579,7 @@
     state.totalWrong++;
     state.totalAttempts++;
 
-    sGood.currentTime = 0; sGood.play().catch(()=>{});
+    sBad.currentTime = 0; sBad.play().catch(()=>{});
     sLifeLost.currentTime = 0; sLifeLost.play().catch(()=>{});
     updateHearts(lostIndex);
     els.mensaje.innerText = message;
@@ -631,7 +631,7 @@
     if(answer === currentAnswer){
       state.totalAttempts++;
       state.totalCorrect++;
-      sBad.currentTime = 0; sBad.play().catch(()=>{});
+      sGood.currentTime = 0; sGood.play().catch(()=>{});
 
       const attemptPayload = buildAttemptPayload({ answer, isCorrect:true, skipped:false, timedOut:false });
       const difficulty = deriveDifficulty(getCurrentLevel().type, currentOperands[0], currentOperands[1]);
@@ -739,15 +739,15 @@
             els.overlayPlayerSelect.appendChild(option);
           });
           const active = window.FirebasePlaceholder.getActivePlayer();
-          els.overlayPlayerSelect.value = players.some((p)=>p.id===active) ? active : (players[0]?.id || 'PR_1');
+          els.overlayPlayerSelect.value = players.some((p)=>p.id===active) ? active : (players[0]?.id || '');
         } else {
-          els.overlayPlayerSelect.innerHTML = '<option value="PR_1">PR_1</option><option value="PR_2">PR_2</option>';
+          els.overlayPlayerSelect.innerHTML = '';
         }
         els.overlayStatus.innerText = 'Selecciona y presiona Ingresar';
       } catch (error) {
-        console.warn('No se pudieron cargar jugadores remotos, se usa local.', error);
-        els.overlayPlayerSelect.innerHTML = '<option value="PR_1">PR_1</option><option value="PR_2">PR_2</option>';
-        els.overlayStatus.innerText = 'Sin conexión a Firestore, usando jugadores locales';
+        console.warn('No se pudieron cargar jugadores remotos.', error);
+        els.overlayPlayerSelect.innerHTML = '';
+        els.overlayStatus.innerText = 'Sin conexión a Firestore';
       }
     };
 
