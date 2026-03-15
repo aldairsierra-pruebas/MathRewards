@@ -7,6 +7,17 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <div id="loginOverlay" class="overlay">
+    <div class="overlay-card">
+      <h2>👋 ¡Bienvenido!</h2>
+      <p>Selecciona tu perfil para comenzar la misión.</p>
+      <label for="overlayPlayerSelect">Jugador</label>
+      <select id="overlayPlayerSelect"></select>
+      <button id="btnIngresar">Ingresar</button>
+      <small id="overlayStatus">Cargando jugadores...</small>
+    </div>
+  </div>
+
   <div class="container">
     <header class="hud">
       <h1>🚀 Misiones Matemáticas</h1>
@@ -15,64 +26,55 @@
         <div>❤️ Vidas: <span id="vidas">2</span></div>
         <div>⏱ Tiempo: <span id="tiempo">0</span>s</div>
         <div>🎯 Nivel: <span id="nivelTxt">Sumas</span></div>
-        <div>🔁 Progreso: <span id="progreso">0</span>/5</div>
       </div>
     </header>
 
     <main class="main">
       <section class="left">
         <div class="card combate">
-          <h2>👾 Enemigo</h2>
-          <div class="barra"><div id="vidaEnemigo" class="vida"></div></div>
+          <h2>🧠 Combate Matemático</h2>
+
+          <div class="categoria-progreso">
+            <strong id="categoriaTxt">Sumas (1/5)</strong>
+            <div class="barra progreso-barra"><div id="progresoNivelFill" class="progreso-nivel-fill"></div></div>
+          </div>
+
           <div id="mensaje" class="mensaje"></div>
 
-          <div class="operacion" id="panelOperacion">
-            <table>
-              <tr><td></td><td id="d1"></td><td id="u1"></td></tr>
-              <tr><td id="signo"></td><td id="d2"></td><td id="u2"></td></tr>
-              <tr><td colspan="3" class="linea"></td></tr>
-              <tr><td></td><td><input id="decenas" inputmode="numeric" maxlength="2"></td><td><input id="unidades" inputmode="numeric" maxlength="2"></td></tr>
-            </table>
+          <div class="start-wrap">
+            <button id="btnIniciar" class="btn-iniciar">Iniciar</button>
+            <div id="countdown" class="countdown" aria-live="polite"></div>
+          </div>
+
+          <div class="juego-wrap">
+            <div class="operacion" id="panelOperacion">
+              <table>
+                <tr><td></td><td id="d1"></td><td id="u1"></td></tr>
+                <tr><td id="signo"></td><td id="d2"></td><td id="u2"></td></tr>
+                <tr><td colspan="3" class="linea"></td></tr>
+                <tr><td></td><td><input id="decenas" inputmode="numeric" maxlength="1"></td><td><input id="unidades" inputmode="numeric" maxlength="1" value="0"></td></tr>
+              </table>
+            </div>
+
+            <div class="vidas-lateral" id="vidasUI" aria-label="Oportunidades restantes"></div>
           </div>
 
           <div class="actions">
             <button id="btnResponder">Responder</button>
             <button id="btnSkip">Saltar</button>
           </div>
+
+          <div class="card misiones embebida">
+            <h3>🗺️ Misión</h3>
+            <p id="misionTxt">Completa 5 operaciones del nivel actual.</p>
+            <div class="rewards">
+              <div id="medalla" class="medalla">🎖️ Aún sin medalla</div>
+              <div id="xpBar" class="xpbar"><div id="xpFill" style="width:0%"></div></div>
+              <div>XP: <span id="xp">0</span>/<span id="xpTarget">100</span></div>
+            </div>
+          </div>
         </div>
       </section>
-
-      <aside class="right">
-        <div class="card misiones">
-          <h3>🗺️ Misión</h3>
-          <p id="misionTxt">Completa 5 operaciones del nivel actual.</p>
-          <div class="rewards">
-            <div id="medalla" class="medalla">🎖️ Aún sin medalla</div>
-            <div id="xpBar" class="xpbar"><div id="xpFill" style="width:0%"></div></div>
-            <div>XP: <span id="xp">0</span>/<span id="xpTarget">100</span></div>
-          </div>
-        </div>
-
-        <div class="card panel-config">
-          <h3>⚙️ Guardado</h3>
-          <p>Se guarda localmente y en Firestore (si está disponible).</p>
-          <div style="display:grid;gap:8px;margin-bottom:10px;">
-            <label for="playerSelect">Jugador activo</label>
-            <select id="playerSelect"></select>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button id="btnSetPlayer">Confirmar jugador</button>
-              <button id="btnRefreshPlayers" type="button">Recargar jugadores</button>
-            </div>
-            <small id="playerStatus">Inicializando jugadores...</small>
-          </div>
-          <button id="btnExport">Exportar progreso (JSON)</button>
-        </div>
-
-        <div class="card panel-panel">
-          <h3>📊 Panel rápido</h3>
-          <div id="panelQuick">Sin conexiones</div>
-        </div>
-      </aside>
     </main>
 
     <footer style="text-align:center;margin:18px 0;color:#fff8;">
