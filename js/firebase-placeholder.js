@@ -8,7 +8,9 @@ import {
   collection,
   query,
   orderBy,
-  serverTimestamp
+  serverTimestamp,
+  addDoc,
+  limit
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -79,6 +81,17 @@ function getActivePlayer() {
   return activePlayerId;
 }
 
+async function logLogin({ playerId }) {
+  const targetPlayer = playerId || getActivePlayer();
+  await addDoc(collection(db, 'players', targetPlayer, 'logins'), {
+    timestamp: serverTimestamp(),
+    clientDate: new Date().toISOString(),
+    userAgent: navigator.userAgent,
+    platform: navigator.platform || 'unknown',
+    language: navigator.language || 'es-MX'
+  });
+}
+
 async function save(path, data) {
   const playerId = getActivePlayer();
   const nowIso = new Date().toISOString();
@@ -110,19 +123,36 @@ async function save(path, data) {
   return true;
 }
 
+async function saveAchievement(payload) {
+  const playerId = getActivePlayer();
+  await addDoc(collection(db, 'players', playerId, 'achievements'), {
+    title: payload.title || '',
+    medal: payload.medal || '',
+    type: payload.type || 'mission',
+    source: payload.source || 'game',
+    category: payload.category || 'general',
+    points: payload.points || 0,
+    timestamp: serverTimestamp(),
+    clientDate: new Date().toISOString()
+  });
+}
+
 async function saveAttempt(payload) {
   const playerId = getActivePlayer();
   const sessionId = payload.sessionId || makeSessionId();
   const attemptId = payload.attemptId || `a_${String(payload.attemptNumber || 1).padStart(4, '0')}`;
+  const mode = payload.mode || 'general';
 
   await setDoc(doc(db, 'players', playerId, 'sessions', sessionId), {
     startedAt: serverTimestamp(),
     endedAt: serverTimestamp(),
-    mode: payload.mode || 'general',
+    mode,
     totalAttempts: payload.totalAttempts || 0,
     correct: payload.correct || 0,
     wrong: payload.wrong || 0,
-    durationMs: payload.durationMs || 0
+    durationMs: payload.durationMs || 0,
+    device: payload.device || {},
+    clientDate: payload.clientDate || new Date().toISOString()
   }, { merge: true });
 
   await setDoc(doc(db, 'players', playerId, 'sessions', sessionId, 'attempts', attemptId), {
@@ -130,8 +160,31 @@ async function saveAttempt(payload) {
     expectedAnswer: payload.expectedAnswer ?? 0,
     userAnswer: payload.userAnswer ?? 0,
     isCorrect: Boolean(payload.isCorrect),
+    wasTimedOut: Boolean(payload.wasTimedOut),
     timeMs: payload.timeMs || 0,
+    thinkTimeMs: payload.thinkTimeMs || 0,
+    writeTimeMs: payload.writeTimeMs || 0,
+    totalTimeMs: payload.totalTimeMs || payload.timeMs || 0,
     difficulty: payload.difficulty || 'normal',
+    difficultyLabel: payload.difficultyLabel || '',
+    difficultyScore: payload.difficultyScore || 1,
+    operationType: payload.operationType || mode,
+    operands: payload.operands || [],
+    responseScore: payload.responseScore || 0,
+    editsCount: payload.editsCount || 0,
+    inputErrors: payload.inputErrors || 0,
+    hintsUsed: payload.hintsUsed || 0,
+    inputLengthChanges: payload.inputLengthChanges || [],
+    timeShown: payload.timeShown || null,
+    firstInputTime: payload.firstInputTime || null,
+    submitTime: payload.submitTime || null,
+    responseValue: payload.responseValue || '',
+    studentId: payload.studentId || playerId,
+    problemId: payload.problemId || '',
+    modelVersion: payload.modelVersion || 'v1',
+    deviceType: payload.deviceType || '',
+    device: payload.device || {},
+    clientDate: payload.clientDate || new Date().toISOString(),
     timestamp: serverTimestamp()
   }, { merge: true });
 
@@ -144,16 +197,73 @@ async function saveAttempt(payload) {
     lastPlayedAt: serverTimestamp()
   }, { merge: true });
 
+  await setDoc(doc(db, 'players', playerId, 'stats', 'summary_by_category', mode), {
+    category: mode,
+    attempts: payload.totalAttemptsCategory || 0,
+    correct: payload.correctCategory || 0,
+    wrong: payload.wrongCategory || 0,
+    highScore: payload.highScoreCategory || 0,
+    avgResponseScore: payload.avgResponseScoreCategory || 0,
+    lastPlayedAt: serverTimestamp(),
+    updatedClientDate: payload.clientDate || new Date().toISOString()
+  }, { merge: true });
+
   return { playerId, sessionId, attemptId };
+}
+
+async function getPlayerInsights(playerId) {
+  const target = playerId || getActivePlayer();
+  const weekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+
+  const summarySnap = await getDoc(doc(db, 'players', target, 'stats', 'summary'));
+  const summary = summarySnap.exists() ? summarySnap.data() : {};
+
+  const categorySnap = await getDocs(collection(db, 'players', target, 'stats', 'summary_by_category'));
+  const byCategory = {};
+  categorySnap.forEach((d)=>{ byCategory[d.id] = d.data(); });
+
+  const sessionsSnap = await getDocs(query(collection(db, 'players', target, 'sessions'), orderBy('clientDate', 'desc'), limit(60)));
+  let weekPoints = 0;
+  let weekCorrect = 0;
+  let weekSessions = 0;
+  let dailyHighScore = 0;
+  const today = new Date().toISOString().slice(0,10);
+
+  sessionsSnap.forEach((docSnap)=>{
+    const data = docSnap.data() || {};
+    const clientDate = data.clientDate ? new Date(data.clientDate).getTime() : 0;
+    const points = Number(data.rankPoints || data.points || 0);
+    if(clientDate >= weekAgo){
+      weekPoints += points;
+      weekCorrect += Number(data.correct || 0);
+      weekSessions += 1;
+    }
+    if((data.clientDate || '').startsWith(today)){
+      dailyHighScore = Math.max(dailyHighScore, points);
+    }
+  });
+
+  const achSnap = await getDocs(query(collection(db, 'players', target, 'achievements'), orderBy('clientDate', 'desc'), limit(12)));
+  const recentAchievements = achSnap.docs.map((d)=> d.data());
+
+  return {
+    summary,
+    byCategory,
+    weekly: { weekPoints, weekCorrect, weekSessions, dailyHighScore },
+    recentAchievements
+  };
 }
 
 window.FirebasePlaceholder = {
   save,
   saveAttempt,
+  saveAchievement,
+  getPlayerInsights,
   ensureDefaultPlayers,
   listPlayers,
   setActivePlayer,
-  getActivePlayer
+  getActivePlayer,
+  logLogin
 };
 
 window.dispatchEvent(new CustomEvent('firebase-ready'));
