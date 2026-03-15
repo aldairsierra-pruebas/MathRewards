@@ -23,7 +23,7 @@
       <h1>🚀 Misiones Matemáticas</h1>
       <div class="stats">
         <div>⭐ Puntos: <span id="puntos">0</span></div>
-        <div>❤️ Vidas: <span id="vidas">2</span></div>
+        <div>❤️ Vidas: <span id="vidas">3</span></div>
         <div>⏱ Tiempo: <span id="tiempo">0</span>s</div>
         <div>🎯 Nivel: <span id="nivelTxt">-</span></div>
       </div>
@@ -80,7 +80,8 @@
       <aside class="right">
         <div class="card misiones embebida">
           <h3>🗺️ Misión</h3>
-          <p id="misionTxt">Completa 10 operaciones de la categoría elegida.</p>
+          <p id="misionTxt">Misiones activas del día.</p>
+          <div id="missionList" class="mission-list"></div>
           <div class="rewards">
             <div id="medalla" class="medalla">🎖️ Aún sin medalla</div>
             <div id="xpBar" class="xpbar"><div id="xpFill" style="width:0%"></div></div>
@@ -93,6 +94,23 @@
     <footer style="text-align:center;margin:18px 0;color:#fff8;">
       Hecho para 2° primaria · Guarda en Firebase: configuración en <code>js/firebase-placeholder.js</code>
     </footer>
+  </div>
+
+  <div id="finalOverlay" class="overlay hidden">
+    <div class="overlay-card final-card">
+      <h2>🏁 ¡Categoría finalizada!</h2>
+      <p id="finalScoreText">Calificación: 0</p>
+      <p id="finalMessage">¡Buen trabajo!</p>
+      <button id="btnFinalContinue">Continuar</button>
+    </div>
+  </div>
+
+  <div id="missionCongratsOverlay" class="overlay hidden">
+    <div class="overlay-card final-card">
+      <h2>🎉 ¡Misión completada!</h2>
+      <p id="missionCongratsText"></p>
+      <button id="btnMissionContinue">Seguir jugando</button>
+    </div>
   </div>
 
 <script src="js/gameEngine.js"></script>
