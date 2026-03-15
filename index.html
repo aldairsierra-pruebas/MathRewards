@@ -25,7 +25,7 @@
         <div>⭐ Puntos: <span id="puntos">0</span></div>
         <div>❤️ Vidas: <span id="vidas">2</span></div>
         <div>⏱ Tiempo: <span id="tiempo">0</span>s</div>
-        <div>🎯 Nivel: <span id="nivelTxt">Sumas</span></div>
+        <div>🎯 Nivel: <span id="nivelTxt">-</span></div>
       </div>
     </header>
 
@@ -34,47 +34,60 @@
         <div class="card combate">
           <h2>🧠 Combate Matemático</h2>
 
-          <div class="categoria-progreso">
-            <strong id="categoriaTxt">Sumas (1/5)</strong>
-            <div class="barra progreso-barra"><div id="progresoNivelFill" class="progreso-nivel-fill"></div></div>
-          </div>
+          <section id="categoryMenu" class="category-menu">
+            <h3>¿Qué tipo de ejercicios matemáticos quieres realizar?</h3>
+            <div class="category-grid">
+              <button class="category-btn" data-level="0"><span class="symbol add">＋</span><span>Sumas</span></button>
+              <button class="category-btn" data-level="1"><span class="symbol sub">－</span><span>Restas</span></button>
+              <button class="category-btn" data-level="2"><span class="symbol mul">×</span><span>Multiplicaciones</span></button>
+            </div>
+          </section>
 
-          <div id="mensaje" class="mensaje"></div>
-
-          <div class="start-wrap">
-            <button id="btnIniciar" class="btn-iniciar">Iniciar</button>
-            <div id="countdown" class="countdown" aria-live="polite"></div>
-          </div>
-
-          <div class="juego-wrap">
-            <div class="operacion" id="panelOperacion">
-              <table>
-                <tr><td></td><td id="d1"></td><td id="u1"></td></tr>
-                <tr><td id="signo"></td><td id="d2"></td><td id="u2"></td></tr>
-                <tr><td colspan="3" class="linea"></td></tr>
-                <tr><td></td><td><input id="decenas" inputmode="numeric" maxlength="1"></td><td><input id="unidades" inputmode="numeric" maxlength="1" value="0"></td></tr>
-              </table>
+          <section id="gameArea" class="game-area hidden">
+            <div class="categoria-progreso">
+              <strong id="categoriaTxt">Sumas (1/10)</strong>
+              <div class="barra progreso-barra"><div id="progresoNivelFill" class="progreso-nivel-fill"></div></div>
             </div>
 
-            <div class="vidas-lateral" id="vidasUI" aria-label="Oportunidades restantes"></div>
-          </div>
+            <div id="mensaje" class="mensaje"></div>
 
-          <div class="actions">
-            <button id="btnResponder">Responder</button>
-            <button id="btnSkip">Saltar</button>
-          </div>
-
-          <div class="card misiones embebida">
-            <h3>🗺️ Misión</h3>
-            <p id="misionTxt">Completa 5 operaciones del nivel actual.</p>
-            <div class="rewards">
-              <div id="medalla" class="medalla">🎖️ Aún sin medalla</div>
-              <div id="xpBar" class="xpbar"><div id="xpFill" style="width:0%"></div></div>
-              <div>XP: <span id="xp">0</span>/<span id="xpTarget">100</span></div>
+            <div class="start-wrap">
+              <button id="btnIniciar" class="btn-iniciar">Iniciar</button>
+              <div id="countdown" class="countdown" aria-live="polite"></div>
             </div>
-          </div>
+
+            <div class="juego-wrap">
+              <div class="operacion" id="panelOperacion">
+                <table>
+                  <tr><td></td><td id="d1"></td><td id="u1"></td></tr>
+                  <tr><td id="signo"></td><td id="d2"></td><td id="u2"></td></tr>
+                  <tr><td colspan="3" class="linea"></td></tr>
+                  <tr><td colspan="3"><input id="respuesta" inputmode="numeric" maxlength="3" placeholder=""></td></tr>
+                </table>
+              </div>
+
+              <div class="vidas-lateral" id="vidasUI" aria-label="Oportunidades restantes"></div>
+            </div>
+
+            <div class="actions">
+              <button id="btnResponder">Responder</button>
+              <button id="btnSkip">Saltar</button>
+            </div>
+          </section>
         </div>
       </section>
+
+      <aside class="right">
+        <div class="card misiones embebida">
+          <h3>🗺️ Misión</h3>
+          <p id="misionTxt">Completa 10 operaciones de la categoría elegida.</p>
+          <div class="rewards">
+            <div id="medalla" class="medalla">🎖️ Aún sin medalla</div>
+            <div id="xpBar" class="xpbar"><div id="xpFill" style="width:0%"></div></div>
+            <div>XP: <span id="xp">0</span>/<span id="xpTarget">100</span></div>
+          </div>
+        </div>
+      </aside>
     </main>
 
     <footer style="text-align:center;margin:18px 0;color:#fff8;">
