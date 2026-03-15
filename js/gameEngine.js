@@ -77,7 +77,7 @@
   };
 
   const sGood = new Audio('https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg');
-  const sBad = new Audio('https://actions.google.com/sounds/v1/cartoon/boing.ogg');
+  const sBad = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
   const sCountdown = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
   const sLifeLost = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
   const sNextQuestion = new Audio('https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg');

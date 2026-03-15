@@ -13,7 +13,7 @@ Contenido del paquete:
 Instrucciones rápidas:
 1. Sirve la carpeta en un servidor local (por ejemplo `python3 -m http.server 8080`) y abre `http://localhost:8080/index.html`.
 2. En la pantalla de juego, usa el selector de jugador para confirmar quién está jugando.
-3. El juego guarda su progreso en Firestore.
+3. El juego guarda su progreso en Firestore. Solo conserva localmente el usuario seleccionado por 2 días para preselección.
 
 Integración Firestore (sin login)
 ---------------------------------
