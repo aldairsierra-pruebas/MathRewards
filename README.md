@@ -22,6 +22,7 @@ La integración ya está conectada al proyecto Firebase compartido y usa Cloud F
 Comportamiento actual:
 - Crea automáticamente (si no existen) los jugadores por defecto: `Isaac`, `Mateo` y `Pruebas`.
 - Si agregas más jugadores manualmente en Firestore dentro de `players`, también aparecen al recargar.
+- Solo mantiene en local el último usuario seleccionado (TTL de 2 días) para dejarlo preseleccionado al entrar; al vencer, vuelve a pedir selección.
 - Guarda:
   - resumen rápido en `players/{playerId}/stats/summary`
   - sesión en `players/{playerId}/sessions/{sessionId}`
