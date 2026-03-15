@@ -29,13 +29,15 @@
     totalCorrect: 0,
     totalWrong: 0,
     totalTimeMs: 0,
-    isReadyToAnswer: false
+    isReadyToAnswer: false,
+    hasStarted: false
   };
 
   const sGood = new Audio('https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg');
   const sBad = new Audio('https://actions.google.com/sounds/v1/cartoon/boing.ogg');
   const sCountdown = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
   const sLifeLost = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+  const sNextQuestion = new Audio('https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg');
 
   const els = {
     d1: document.getElementById('d1'),
@@ -101,6 +103,20 @@
     return config.levels[state.levelIndex];
   }
 
+
+  function beginQuestionInteraction(){
+    state.isReadyToAnswer = true;
+    setGameControlsEnabled(true);
+    els.panelOperacion.classList.remove('disabled-panel');
+    els.dec.focus();
+    clearInterval(state.timer);
+    state.timer = setInterval(()=>{
+      state.time++;
+      els.tiempo.innerText = state.time;
+      handleTimeLimit();
+    },1000);
+  }
+
   function generateQuestion(){
     clearInterval(state.timer);
     state.time = 0;
@@ -134,10 +150,18 @@
     setDefaultInputs();
     state.lastQuestionCreatedAt = Date.now();
     state.isReadyToAnswer = false;
-    setGameControlsEnabled(false);
-    els.panelOperacion.classList.add('disabled-panel');
-    els.btnIniciar.disabled = false;
     els.countdown.innerText = '';
+
+    if(state.hasStarted){
+      els.btnIniciar.style.display = 'none';
+      beginQuestionInteraction();
+    } else {
+      setGameControlsEnabled(false);
+      els.panelOperacion.classList.add('disabled-panel');
+      els.btnIniciar.disabled = false;
+      els.btnIniciar.style.display = 'inline-block';
+    }
+
     updateHUD();
   }
 
@@ -193,7 +217,8 @@
       totalCorrect: 0,
       totalWrong: 0,
       totalTimeMs: 0,
-      isReadyToAnswer: false
+      isReadyToAnswer: false,
+      hasStarted: false
     };
     updateHUD();
     generateQuestion();
@@ -230,15 +255,9 @@
 
       setTimeout(()=>{
         els.countdown.innerText = '';
-        state.isReadyToAnswer = true;
-        setGameControlsEnabled(true);
-        els.panelOperacion.classList.remove('disabled-panel');
-        els.dec.focus();
-        state.timer = setInterval(()=>{
-          state.time++;
-          els.tiempo.innerText = state.time;
-          handleTimeLimit();
-        },1000);
+        state.hasStarted = true;
+        els.btnIniciar.style.display = 'none';
+        beginQuestionInteraction();
       }, 500);
     };
 
@@ -252,7 +271,7 @@
     state.totalWrong++;
     state.totalAttempts++;
     state.totalTimeMs += (spentSeconds || 0) * 1000;
-    sBad.currentTime = 0; sBad.play();
+    sGood.currentTime = 0; sGood.play();
     sLifeLost.currentTime = 0; sLifeLost.play().catch(()=>{});
     updateHearts(lostIndex);
     els.mensaje.innerText = baseMessage;
@@ -272,7 +291,17 @@
     updateHUD();
     saveLocal();
     saveAttempt(null, spentSeconds, false);
-    setTimeout(()=> generateQuestion(), 900);
+    scheduleNextQuestion();
+  }
+
+
+  function scheduleNextQuestion(delayMs = 3000){
+    state.isReadyToAnswer = false;
+    setGameControlsEnabled(false);
+    els.panelOperacion.classList.add('disabled-panel');
+    sNextQuestion.currentTime = 0;
+    sNextQuestion.play().catch(()=>{});
+    setTimeout(()=> generateQuestion(), delayMs);
   }
 
   function verifyAnswer(){
@@ -290,7 +319,7 @@
       state.totalAttempts++;
       state.totalTimeMs += spent * 1000;
       state.totalCorrect++;
-      sGood.currentTime = 0; sGood.play();
+      sBad.currentTime = 0; sBad.play();
       const bonus = Math.max(0, config.timeBonusMax - spent);
       const gained = config.basePoints + bonus;
       state.points += gained;
@@ -320,7 +349,7 @@
       updateHUD();
       saveLocal();
       saveAttempt(answer, spent, true);
-      setTimeout(()=> generateQuestion(), 900);
+      scheduleNextQuestion();
       return;
     }
 
@@ -345,7 +374,7 @@
     updateHUD();
     saveLocal();
     saveAttempt(null, state.time, false, true);
-    setTimeout(()=> generateQuestion(), 700);
+    scheduleNextQuestion();
   }
 
   function saveAttempt(answer, spentSeconds, isCorrect, skipped){
