@@ -31,7 +31,33 @@ const DEFAULT_PLAYERS = [
   { id: 'Pruebas', displayName: 'Pruebas', avatar: 'robot-3' }
 ];
 
-let activePlayerId = localStorage.getItem('misiones_active_player') || 'PR_1';
+const ACTIVE_PLAYER_STORAGE_KEY = 'misiones_active_player';
+const ACTIVE_PLAYER_TTL_MS = 2 * 24 * 60 * 60 * 1000; // 2 días
+
+function getStoredActivePlayer() {
+  try {
+    const raw = localStorage.getItem(ACTIVE_PLAYER_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !parsed.playerId || !parsed.savedAt) {
+      localStorage.removeItem(ACTIVE_PLAYER_STORAGE_KEY);
+      return null;
+    }
+
+    const age = Date.now() - Number(parsed.savedAt);
+    if (Number.isNaN(age) || age > ACTIVE_PLAYER_TTL_MS) {
+      localStorage.removeItem(ACTIVE_PLAYER_STORAGE_KEY);
+      return null;
+    }
+
+    return parsed.playerId;
+  } catch (error) {
+    console.warn('No se pudo leer usuario activo local.', error);
+    return null;
+  }
+}
+
+let activePlayerId = getStoredActivePlayer() || DEFAULT_PLAYERS[0].id;
 
 function makeSessionId() {
   const d = new Date();
@@ -75,7 +101,14 @@ async function listPlayers() {
 
 function setActivePlayer(playerId) {
   activePlayerId = playerId;
-  localStorage.setItem('misiones_active_player', playerId);
+  try {
+    localStorage.setItem(ACTIVE_PLAYER_STORAGE_KEY, JSON.stringify({
+      playerId,
+      savedAt: Date.now()
+    }));
+  } catch (error) {
+    console.warn('No se pudo guardar usuario activo local.', error);
+  }
 }
 
 function getActivePlayer() {
@@ -198,7 +231,7 @@ async function saveAttempt(payload) {
     lastPlayedAt: serverTimestamp()
   }, { merge: true });
 
-  await setDoc(doc(db, 'players', playerId, 'stats', 'summary_by_category', mode), {
+  await setDoc(doc(db, 'players', playerId, 'stats', 'summary', 'summary_by_category', mode), {
     category: mode,
     attempts: payload.totalAttemptsCategory || 0,
     correct: payload.correctCategory || 0,
@@ -219,7 +252,7 @@ async function getPlayerInsights(playerId) {
   const summarySnap = await getDoc(doc(db, 'players', target, 'stats', 'summary'));
   const summary = summarySnap.exists() ? summarySnap.data() : {};
 
-  const categorySnap = await getDocs(collection(db, 'players', target, 'stats', 'summary_by_category'));
+  const categorySnap = await getDocs(collection(db, 'players', target, 'stats', 'summary', 'summary_by_category'));
   const byCategory = {};
   categorySnap.forEach((d)=>{ byCategory[d.id] = d.data(); });
 

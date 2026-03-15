@@ -58,7 +58,7 @@
     totalTimeMs:0,
     isReadyToAnswer:false,
     hasStarted:false,
-    playerId:'PR_1',
+    playerId:'Isaac',
     perLevelAdaptiveOffset: { add:0, sub:0, mul:0 },
     recentResults: { add:[], sub:[], mul:[] },
     currentMetrics:null,
@@ -77,7 +77,7 @@
   };
 
   const sGood = new Audio('https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg');
-  const sBad = new Audio('https://actions.google.com/sounds/v1/cartoon/boing.ogg');
+  const sBad = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
   const sCountdown = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
   const sLifeLost = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
   const sNextQuestion = new Audio('https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg');
@@ -739,15 +739,15 @@
             els.overlayPlayerSelect.appendChild(option);
           });
           const active = window.FirebasePlaceholder.getActivePlayer();
-          els.overlayPlayerSelect.value = players.some((p)=>p.id===active) ? active : (players[0]?.id || 'PR_1');
+          els.overlayPlayerSelect.value = players.some((p)=>p.id===active) ? active : (players[0]?.id || '');
         } else {
-          els.overlayPlayerSelect.innerHTML = '<option value="PR_1">PR_1</option><option value="PR_2">PR_2</option>';
+          els.overlayPlayerSelect.innerHTML = '';
         }
         els.overlayStatus.innerText = 'Selecciona y presiona Ingresar';
       } catch (error) {
-        console.warn('No se pudieron cargar jugadores remotos, se usa local.', error);
-        els.overlayPlayerSelect.innerHTML = '<option value="PR_1">PR_1</option><option value="PR_2">PR_2</option>';
-        els.overlayStatus.innerText = 'Sin conexión a Firestore, usando jugadores locales';
+        console.warn('No se pudieron cargar jugadores remotos.', error);
+        els.overlayPlayerSelect.innerHTML = '';
+        els.overlayStatus.innerText = 'Sin conexión a Firestore';
       }
     };
 
