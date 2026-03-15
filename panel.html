@@ -7,34 +7,14 @@ body{font-family:Arial;background:#f4f7fb;margin:0;padding:20px;color:#13233d}
 .container{max-width:900px;margin:0 auto}
 .card{background:#fff;padding:12px;border-radius:10px;margin-bottom:12px;box-shadow:0 6px 18px rgba(20,40,70,0.06)}
 h1{margin:0 0 10px}
-table{width:100%;border-collapse:collapse}
-th,td{padding:8px;border-bottom:1px solid #eef2f7;text-align:left}
 </style>
 </head>
 <body>
 <div class="container">
-  <h1>📊 Panel de Progreso (local)</h1>
+  <h1>📊 Panel de Progreso</h1>
   <div class="card">
-    <button id="btnLoad">Cargar progreso local</button>
-    <button id="btnClear">Borrar local</button>
+    <p>El progreso se guarda en Firestore. Solo se mantiene en local el último usuario seleccionado (hasta 2 días).</p>
   </div>
-  <div id="out"></div>
 </div>
-<script>
-document.getElementById('btnLoad').addEventListener('click', ()=>{
-  const raw = localStorage.getItem('misiones_state') || localStorage.getItem('misiones_v1_store');
-  if(!raw){ document.getElementById('out').innerText = 'No hay progreso guardado.'; return; }
-  try{
-    const obj = JSON.parse(raw);
-    const html = `<pre>${JSON.stringify(obj,null,2)}</pre>`;
-    document.getElementById('out').innerHTML = html;
-  }catch(e){ document.getElementById('out').innerText = 'Error leyendo progreso.'; }
-});
-document.getElementById('btnClear').addEventListener('click', ()=>{
-  localStorage.removeItem('misiones_state');
-  localStorage.removeItem('misiones_v1_store');
-  document.getElementById('out').innerText = 'Local borrado.';
-});
-</script>
 </body>
 </html>
