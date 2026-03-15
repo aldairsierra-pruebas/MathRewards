@@ -1,26 +1,63 @@
-
 :root{--bg1:#6dd5ed;--bg2:#2193b0;--card:#ffffff;--ink:#07203a}
 *{box-sizing:border-box}
 body{font-family:Arial,Helvetica,sans-serif;margin:0;min-height:100vh;background:linear-gradient(135deg,var(--bg1),var(--bg2));color:#fff}
-.container{max-width:980px;margin:20px auto;padding:12px}
+.container{max-width:1180px;margin:20px auto;padding:12px}
 .hud{background:linear-gradient(135deg,#ffd95c,#ffbe2f);color:#13233d;padding:12px;border-radius:12px}
 .hud h1{margin:0}
 .stats{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-weight:800}
-.main{display:grid;grid-template-columns:1fr 320px;gap:14px;margin-top:14px}
+.main{display:grid;grid-template-columns:1fr;gap:14px;margin-top:14px}
+@media (min-width:1080px){.main{grid-template-columns:1fr 340px;align-items:start}}
 .card{background:rgba(255,255,255,0.95);color:var(--ink);border-radius:12px;padding:14px;box-shadow:0 8px 0 rgba(0,0,0,0.08)}
 .combate .barra{width:100%;height:22px;background:#283956;border-radius:999px;overflow:hidden;border:3px solid rgba(0,0,0,0.06)}
-.vida{height:100%;background:linear-gradient(90deg,#ff5f5f,#ff8b49);width:100%;transition:width .35s ease}
+.hidden{display:none!important}
+.category-menu h3{margin:4px 0 12px}
+.category-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.category-btn{background:#fff7d1;border:3px solid #ffd166;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center;min-height:140px;font-size:18px;font-weight:800;color:#13233d}
+.symbol{font-size:44px;display:inline-block}
+.symbol.add{animation:floatA 1.4s ease-in-out infinite}
+.symbol.sub{animation:floatB 1.6s ease-in-out infinite}
+.symbol.mul{animation:spin 2.3s linear infinite}
+@keyframes floatA{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes floatB{0%,100%{transform:scale(1)}50%{transform:scale(1.2)}}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+.categoria-progreso{display:grid;gap:6px;margin-bottom:10px}
+.progreso-barra{height:16px}
+.progreso-nivel-fill{height:100%;width:0;background:linear-gradient(90deg,#36d17e,#0ca05b);transition:width .35s ease}
+.juego-wrap{display:grid;grid-template-columns:1fr 90px;gap:14px;align-items:center}
+.vidas-lateral{display:flex;flex-direction:column;gap:16px;align-items:center;justify-content:center;min-height:220px}
+.heart{font-size:52px;line-height:1;color:#999;filter:drop-shadow(0 4px 4px rgba(0,0,0,.25));transition:color .4s ease, transform .2s ease}
+.heart.alive{color:#f5113b}
+.heart.lost{color:#9a9a9a}
+.heart.life-loss{animation:heartLost 1s ease}
+@keyframes heartLost{0%{transform:scale(1.35) rotate(-8deg);color:#f5113b}45%{transform:scale(.95) rotate(8deg);color:#ff8a9f}100%{transform:scale(1) rotate(0);color:#9a9a9a}}
 .operacion{display:inline-block;background:#fff;color:#000;padding:8px 14px;border-radius:10px;margin-top:12px}
+.disabled-panel{opacity:.45;filter:grayscale(.25)}
 table{border-collapse:collapse;font-size:36px;font-weight:900}
 td{width:56px;text-align:right}
 .linea{border-top:4px solid #13233d}
-input{width:56px;height:52px;font-size:32px;text-align:center;border-radius:8px;border:3px solid #13233d}
+#respuesta{width:180px;height:58px;font-size:38px;text-align:center;border-radius:10px;border:3px solid #13233d}
 .actions{display:flex;gap:8px;justify-content:center;margin-top:10px}
 button{background:#ffd166;border-radius:10px;padding:8px 14px;font-weight:800;border:none;cursor:pointer;color:#13233d}
+.start-wrap{display:flex;align-items:center;gap:10px;margin-top:10px}
+.btn-iniciar{background:#7bff7b;color:#0c4b0c}
+.countdown{min-height:36px;min-width:60px;font-size:32px;font-weight:900;color:#ff7f11;text-align:center}
+.countdown-pop{animation:pop .5s ease}
+@keyframes pop{0%{transform:scale(.4);opacity:0}100%{transform:scale(1);opacity:1}}
 .misiones .medalla{font-size:22px;margin-bottom:8px}
 .xpbar{width:100%;height:14px;background:rgba(0,0,0,0.08);border-radius:10px;overflow:hidden;margin:8px 0}
-.xpbar > div{height:100%;background:linear-gradient(90deg,#ffd200,#ff8c00);width:0%;transition:width .4s}
-.mensaje{min-height:36px;font-weight:800;margin-top:8px;color:#0b3}
-.panel-config button{background:#36d17e;color:#052}
-.panel-panel{margin-top:10px}
-@media (max-width:880px){.main{grid-template-columns:1fr}}
+.xpbar>div{height:100%;background:linear-gradient(90deg,#ffd200,#ff8c00);width:0%;transition:width .4s}
+ .mensaje{min-height:36px;font-weight:800;margin-top:8px;color:#0b3}
+
+.mission-list{display:grid;gap:8px;margin:10px 0}
+.mission-item{background:#eef7ff;border:2px dashed #7db6ff;border-radius:10px;padding:8px 10px;font-size:14px}
+.mission-item.done{background:#e9ffe9;border-color:#56c271}
+.final-card{max-width:420px;text-align:center}
+.final-card h2{margin:0 0 8px}
+.final-card p{margin:6px 0}
+
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.58);display:flex;align-items:center;justify-content:center;z-index:9999}
+.overlay.hidden{display:none}
+.overlay-card{background:white;color:#07203a;padding:20px;border-radius:16px;display:grid;gap:10px;min-width:280px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.overlay-card h2{margin:0}
+.overlay-card select,.overlay-card button{font-size:16px;padding:8px}
+@media (max-width:880px){.juego-wrap{grid-template-columns:1fr}.vidas-lateral{flex-direction:row;min-height:auto;justify-content:flex-start}}
