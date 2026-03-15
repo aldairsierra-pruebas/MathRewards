@@ -71,7 +71,9 @@
       attemptsCount:0
     },
     activeMissions: [],
-    currentCategory: { attempts:0, correct:0, scoreSum:0 }
+    currentCategory: { attempts:0, correct:0, scoreSum:0 },
+    categoryAggregates: { add:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, sub:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, mul:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0} },
+    medalHistory: []
   };
 
   const sGood = new Audio('https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg');
@@ -85,12 +87,16 @@
     respuesta: document.getElementById('respuesta'), btn: document.getElementById('btnResponder'), btnSkip: document.getElementById('btnSkip'), btnIniciar: document.getElementById('btnIniciar'),
     puntos: document.getElementById('puntos'), vidas: document.getElementById('vidas'), vidasUI: document.getElementById('vidasUI'), tiempo: document.getElementById('tiempo'),
     nivelTxt: document.getElementById('nivelTxt'), categoriaTxt: document.getElementById('categoriaTxt'), progresoNivelFill: document.getElementById('progresoNivelFill'),
-    mensaje: document.getElementById('mensaje'), medalla: document.getElementById('medalla'), xpFill: document.getElementById('xpFill'), xpText: document.getElementById('xp'), xpTarget: document.getElementById('xpTarget'),
+    mensaje: document.getElementById('mensaje'), xpFill: document.getElementById('xpFill'), xpText: document.getElementById('xp'), xpTarget: document.getElementById('xpTarget'),
     panelOperacion: document.getElementById('panelOperacion'), countdown: document.getElementById('countdown'), overlay: document.getElementById('loginOverlay'), overlayPlayerSelect: document.getElementById('overlayPlayerSelect'),
     overlayStatus: document.getElementById('overlayStatus'), btnIngresar: document.getElementById('btnIngresar'), categoryMenu: document.getElementById('categoryMenu'), gameArea: document.getElementById('gameArea'),
     missionList: document.getElementById('missionList'), finalOverlay: document.getElementById('finalOverlay'), finalScoreText: document.getElementById('finalScoreText'), finalMessage: document.getElementById('finalMessage'),
     btnFinalContinue: document.getElementById('btnFinalContinue'), missionCongratsOverlay: document.getElementById('missionCongratsOverlay'), missionCongratsText: document.getElementById('missionCongratsText'),
-    btnMissionContinue: document.getElementById('btnMissionContinue')
+    btnMissionContinue: document.getElementById('btnMissionContinue'),
+    insWeekPoints: document.getElementById('insWeekPoints'), insWeekCorrect: document.getElementById('insWeekCorrect'), insDailyHigh: document.getElementById('insDailyHigh'), insWeekSessions: document.getElementById('insWeekSessions'),
+    insByCategory: document.getElementById('insByCategory'), insAchievements: document.getElementById('insAchievements'),
+    btnOpenMedals: document.getElementById('btnOpenMedals'), medalCount: document.getElementById('medalCount'), medalsOverlay: document.getElementById('medalsOverlay'),
+    medalsHistoryList: document.getElementById('medalsHistoryList'), btnCloseMedals: document.getElementById('btnCloseMedals')
   };
 
   let currentAnswer = 0;
@@ -136,13 +142,35 @@
     });
   }
 
+
+  function updateMedalSummary(){
+    if(!els.medalCount) return;
+    const unique = new Set((state.medalHistory || []).map((m)=>m.medal || m.title || ''));
+    els.medalCount.innerText = String(unique.size || 0);
+  }
+
+  function renderMedalsHistory(){
+    if(!els.medalsHistoryList) return;
+    const list = (state.medalHistory || []).slice().sort((a,b)=> (b.date || '').localeCompare(a.date || ''));
+    if(!list.length){
+      els.medalsHistoryList.innerText = 'Sin medallas aún.';
+      return;
+    }
+    els.medalsHistoryList.innerHTML = list.map((m)=>`<div class="medal-row"><strong>${m.medal || '🏅'} ${m.title || 'Logro'}</strong><br><small>${(m.date || '').slice(0,10)}</small></div>`).join('');
+  }
+
   function showMissionCongrats(mission){
-    els.medalla.innerText = `🏅 ${mission.medal}`;
     if(!state.medals.includes(mission.medal)){ state.medals.push(mission.medal); }
+    state.medalHistory.push({ medal: mission.medal, title: mission.title, date: nowIso() });
+    updateMedalSummary();
+    renderMedalsHistory();
     if(els.missionCongratsText){
       els.missionCongratsText.innerText = `${mission.title} completada. Ganaste: ${mission.medal}`;
     }
     els.missionCongratsOverlay.classList.remove('hidden');
+    if(window.FirebasePlaceholder && typeof window.FirebasePlaceholder.saveAchievement === 'function'){
+      window.FirebasePlaceholder.saveAchievement({ title: mission.title, medal: mission.medal, type:'mission', category: mission.group, points: state.points }).catch(()=>{});
+    }
   }
 
   function updateMissionProgress(context){
@@ -177,6 +205,52 @@
     });
 
     renderMissions();
+  }
+
+
+  function renderPlayerInsights(insights){
+    if(!insights) return;
+    const wk = insights.weekly || {};
+    if(els.insWeekPoints) els.insWeekPoints.innerText = String(wk.weekPoints || 0);
+    if(els.insWeekCorrect) els.insWeekCorrect.innerText = String(wk.weekCorrect || 0);
+    if(els.insDailyHigh) els.insDailyHigh.innerText = String(wk.dailyHighScore || 0);
+    if(els.insWeekSessions) els.insWeekSessions.innerText = String(wk.weekSessions || 0);
+
+    if(els.insByCategory){
+      const byCat = insights.byCategory || {};
+      const rows = Object.entries(byCat).map(([k,v])=>`${k}: ${v.correct || 0}/${v.attempts || 0} · HS ${v.highScore || 0}`);
+      els.insByCategory.innerHTML = rows.length ? rows.map((r)=>`<div>${r}</div>`).join('') : 'Sin datos';
+    }
+
+    if(els.insAchievements){
+      const ach = (insights.recentAchievements || []).slice(0,8);
+      els.insAchievements.innerHTML = ach.length ? ach.map((a)=>`<span class="badge-chip">${a.medal || '🏅'} ${a.title || 'Logro'}</span>`).join('') : 'Sin registros';
+      state.medalHistory = ach.map((a)=>({ medal:a.medal || '🏅', title:a.title || 'Logro', date:a.clientDate || '' }));
+      updateMedalSummary();
+      renderMedalsHistory();
+    }
+
+    const fromDb = insights.byCategory || {};
+    ['add','sub','mul'].forEach((k)=>{
+      const d = fromDb[k] || {};
+      state.categoryAggregates[k] = {
+        attempts: Number(d.attempts || 0),
+        correct: Number(d.correct || 0),
+        wrong: Number(d.wrong || 0),
+        highScore: Number(d.highScore || 0),
+        scoreSum: Number((d.avgResponseScore || 0) * (d.attempts || 0))
+      };
+    });
+  }
+
+  async function refreshPlayerInsights(playerId){
+    if(!window.FirebasePlaceholder || typeof window.FirebasePlaceholder.getPlayerInsights !== 'function') return;
+    try{
+      const insights = await window.FirebasePlaceholder.getPlayerInsights(playerId || state.playerId);
+      renderPlayerInsights(insights);
+    }catch(e){
+      console.warn('No se pudo cargar insights del jugador', e);
+    }
   }
 
   function inferDeviceType(){ return ('ontouchstart' in window || navigator.maxTouchPoints > 0) ? 'touch' : 'keyboard'; }
@@ -408,7 +482,12 @@
       modelVersion: config.modelVersion,
       device: metrics.device_info,
       deviceType: metrics.device_info.type,
-      clientDate: nowIso()
+      clientDate: nowIso(),
+      totalAttemptsCategory: state.categoryAggregates[lvl.type]?.attempts || 0,
+      correctCategory: state.categoryAggregates[lvl.type]?.correct || 0,
+      wrongCategory: state.categoryAggregates[lvl.type]?.wrong || 0,
+      highScoreCategory: state.categoryAggregates[lvl.type]?.highScore || 0,
+      avgResponseScoreCategory: (state.categoryAggregates[lvl.type]?.attempts || 0) > 0 ? Math.round((state.categoryAggregates[lvl.type].scoreSum || 0) / state.categoryAggregates[lvl.type].attempts) : 0
     };
   }
 
@@ -441,6 +520,13 @@
       slowThreshold: ({ add:40, sub:45, mul:40 }[type] || 42)
     });
     if(state.recentResults[type].length > 8){ state.recentResults[type].shift(); }
+
+    const agg = state.categoryAggregates[type] || { attempts:0, correct:0, wrong:0, highScore:0, scoreSum:0 };
+    agg.attempts += 1;
+    if(payload.isCorrect) agg.correct += 1; else agg.wrong += 1;
+    agg.scoreSum += Number(payload.responseScore || 0);
+    agg.highScore = Math.max(agg.highScore, Number(payload.responseScore || 0));
+    state.categoryAggregates[type] = agg;
 
     adjustDifficultyProfile(type);
     updateMissionProgress(payload);
@@ -603,6 +689,8 @@
     state.lives = config.maxLives;
     state.hasStarted = false;
     state.currentCategory = { attempts:0, correct:0, scoreSum:0 };
+    const t = getCurrentLevel().type;
+    if(!state.categoryAggregates[t]){ state.categoryAggregates[t] = { attempts:0, correct:0, wrong:0, highScore:0, scoreSum:0 }; }
     els.categoryMenu.classList.add('hidden');
     els.gameArea.classList.remove('hidden');
     els.mensaje.innerText = `Elegiste ${getCurrentLevel().name}. Presiona Iniciar para comenzar.`;
@@ -679,6 +767,7 @@
 
       els.overlay.classList.add('hidden');
       els.mensaje.innerText = `Hola ${selected}, selecciona una categoría para iniciar.`;
+      await refreshPlayerInsights(selected);
     });
 
     await syncPlayers();
@@ -691,11 +780,15 @@
   document.querySelectorAll('.category-btn').forEach((btn)=> btn.addEventListener('click', ()=> chooseCategory(Number(btn.dataset.level))));
   els.btnFinalContinue && els.btnFinalContinue.addEventListener('click', ()=> els.finalOverlay.classList.add('hidden'));
   els.btnMissionContinue && els.btnMissionContinue.addEventListener('click', ()=> els.missionCongratsOverlay.classList.add('hidden'));
+  els.btnOpenMedals && els.btnOpenMedals.addEventListener('click', ()=>{ renderMedalsHistory(); els.medalsOverlay.classList.remove('hidden'); });
+  els.btnCloseMedals && els.btnCloseMedals.addEventListener('click', ()=> els.medalsOverlay.classList.add('hidden'));
 
   setupInputTracking();
   state.sessionId = buildSessionId();
   pickDailyMissions();
   updateHUD();
+  updateMedalSummary();
+  refreshPlayerInsights(state.playerId);
   setupLoginOverlay();
 
   window.__misiones_state = state;

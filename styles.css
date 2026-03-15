@@ -51,6 +51,19 @@ button{background:#ffd166;border-radius:10px;padding:8px 14px;font-weight:800;bo
 .mission-list{display:grid;gap:8px;margin:10px 0}
 .mission-item{background:#eef7ff;border:2px dashed #7db6ff;border-radius:10px;padding:8px 10px;font-size:14px}
 .mission-item.done{background:#e9ffe9;border-color:#56c271}
+
+.progreso-jugador{margin-top:12px}
+.insights-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px}
+.insight-block{margin-top:8px;background:#f8fbff;border:1px solid #d9ecff;border-radius:8px;padding:8px;font-size:13px}
+#insByCategory,#insAchievements{margin-top:4px;display:grid;gap:4px}
+.badge-chip{display:inline-block;background:#fff3c4;border:1px solid #ffd166;border-radius:999px;padding:2px 8px;font-size:12px;margin:2px}
+
+.destaque-suave{margin-top:12px;border:1px solid rgba(255,209,102,.55);box-shadow:0 6px 0 rgba(0,0,0,.05)}
+.medal-summary{display:flex;align-items:center;gap:8px;background:#fff4c7;border:2px solid #ffd166;color:#5d4300;width:100%;justify-content:flex-start}
+.medal-icon{font-size:24px;line-height:1}
+.medals-history{max-height:280px;overflow:auto;text-align:left;display:grid;gap:8px}
+.medal-row{background:#fff7dd;border:1px solid #ffd166;border-radius:8px;padding:8px}
+
 .final-card{max-width:420px;text-align:center}
 .final-card h2{margin:0 0 8px}
 .final-card p{margin:6px 0}

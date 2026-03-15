@@ -29,6 +29,24 @@
       </div>
     </header>
 
+    <section class="card progreso-jugador destaque-suave">
+      <h3>📈 Progreso del jugador</h3>
+      <div id="playerInsights" class="insights-grid">
+        <div><strong>Semana (pts):</strong> <span id="insWeekPoints">0</span></div>
+        <div><strong>Semana (aciertos):</strong> <span id="insWeekCorrect">0</span></div>
+        <div><strong>High score diario:</strong> <span id="insDailyHigh">0</span></div>
+        <div><strong>Sesiones semana:</strong> <span id="insWeekSessions">0</span></div>
+      </div>
+      <div class="insight-block">
+        <strong>Por categoría:</strong>
+        <div id="insByCategory">Sin datos</div>
+      </div>
+      <div class="insight-block">
+        <strong>Medallas/Misiones recientes:</strong>
+        <div id="insAchievements">Sin registros</div>
+      </div>
+    </section>
+
     <main class="main">
       <section class="left">
         <div class="card combate">
@@ -83,7 +101,7 @@
           <p id="misionTxt">Misiones activas del día.</p>
           <div id="missionList" class="mission-list"></div>
           <div class="rewards">
-            <div id="medalla" class="medalla">🎖️ Aún sin medalla</div>
+            <button id="btnOpenMedals" class="medal-summary" type="button"><span class="medal-icon">🏅</span><span>Medallas conseguidas: <strong id="medalCount">0</strong></span></button>
             <div id="xpBar" class="xpbar"><div id="xpFill" style="width:0%"></div></div>
             <div>XP: <span id="xp">0</span>/<span id="xpTarget">100</span></div>
           </div>
@@ -110,6 +128,14 @@
       <h2>🎉 ¡Misión completada!</h2>
       <p id="missionCongratsText"></p>
       <button id="btnMissionContinue">Seguir jugando</button>
+    </div>
+  </div>
+
+  <div id="medalsOverlay" class="overlay hidden">
+    <div class="overlay-card final-card">
+      <h2>🏅 Historial de medallas</h2>
+      <div id="medalsHistoryList" class="medals-history">Sin medallas aún.</div>
+      <button id="btnCloseMedals">Cerrar</button>
     </div>
   </div>
 
