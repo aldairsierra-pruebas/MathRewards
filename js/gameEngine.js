@@ -599,7 +599,7 @@
     state.totalWrong++;
     state.totalAttempts++;
 
-    sGood.currentTime = 0; sGood.play().catch(()=>{});
+    sBad.currentTime = 0; sBad.play().catch(()=>{});
     sLifeLost.currentTime = 0; sLifeLost.play().catch(()=>{});
     updateHearts(lostIndex);
     els.mensaje.innerText = message;
@@ -651,7 +651,7 @@
     if(answer === currentAnswer){
       state.totalAttempts++;
       state.totalCorrect++;
-      sBad.currentTime = 0; sBad.play().catch(()=>{});
+      sGood.currentTime = 0; sGood.play().catch(()=>{});
 
       const attemptPayload = buildAttemptPayload({ answer, isCorrect:true, skipped:false, timedOut:false });
       const difficulty = deriveDifficulty(getCurrentLevel().type, currentOperands[0], currentOperands[1]);
