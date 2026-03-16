@@ -87,6 +87,37 @@ function toStartHourId(isoDate, sessionId) {
   return `h_${hh}00`;
 }
 
+function slugify(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+    .slice(0, 60) || 'logro';
+}
+
+function makeAchievementId(payload, clientDate) {
+  const d = new Date(clientDate || new Date().toISOString());
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  const titlePart = slugify(payload.title || payload.medal || payload.type || 'logro');
+  const categoryPart = slugify(payload.category || 'general');
+  return `ach_${y}${m}${day}_${hh}${mm}${ss}_${categoryPart}_${titlePart}`;
+}
+
+function toSortMs(data) {
+  const clientMs = data.clientDate ? Date.parse(data.clientDate) : 0;
+  if (!Number.isNaN(clientMs) && clientMs > 0) return clientMs;
+  const ts = data.timestamp;
+  if (ts && typeof ts.toMillis === 'function') return ts.toMillis();
+  return 0;
+}
+
 async function ensureDefaultPlayers() {
   for (const player of DEFAULT_PLAYERS) {
     const ref = doc(db, 'players', player.id);
@@ -181,7 +212,11 @@ async function save(path, data) {
 
 async function saveAchievement(payload) {
   const playerId = getActivePlayer();
-  await addDoc(collection(db, 'players', playerId, 'achievements'), {
+  const clientDate = new Date().toISOString();
+  const achievementId = makeAchievementId(payload || {}, clientDate);
+
+  await setDoc(doc(db, 'players', playerId, 'achievements', achievementId), {
+    achievementId,
     title: payload.title || '',
     medal: payload.medal || '',
     type: payload.type || 'mission',
@@ -189,8 +224,10 @@ async function saveAchievement(payload) {
     category: payload.category || 'general',
     points: payload.points || 0,
     timestamp: serverTimestamp(),
-    clientDate: new Date().toISOString()
-  });
+    clientDate
+  }, { merge: true });
+
+  return { playerId, achievementId };
 }
 
 async function saveAttempt(payload) {
@@ -345,8 +382,11 @@ async function getPlayerInsights(playerId) {
     }
   });
 
-  const achSnap = await getDocs(query(collection(db, 'players', target, 'achievements'), orderBy('clientDate', 'desc'), limit(12)));
-  const recentAchievements = achSnap.docs.map((d)=> d.data());
+  const achSnap = await getDocs(collection(db, 'players', target, 'achievements'));
+  const recentAchievements = achSnap.docs
+    .map((d)=> d.data())
+    .sort((a, b) => toSortMs(b) - toSortMs(a))
+    .slice(0, 12);
 
   return {
     summary,
