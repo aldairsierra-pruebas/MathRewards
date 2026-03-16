@@ -11,9 +11,9 @@ Contenido del paquete:
 - README.md (este archivo)
 
 Instrucciones rápidas:
-1. Sirve la carpeta en un servidor local (por ejemplo `python3 -m http.server 8080`) y abre `http://localhost:8080/index.html`.
-2. En la pantalla de juego, usa el selector de jugador para confirmar quién está jugando.
-3. El juego guarda su progreso en Firestore. Solo conserva localmente el usuario seleccionado por 2 días para preselección.
+1. Sirve la carpeta en un servidor local (por ejemplo `python3 -m http.server 8080`) y abre `http://localhost:8080/select-user.html`.
+2. Selecciona el jugador y entra al juego; después te redirige a `index.html`.
+3. El juego guarda su progreso en Firestore y conserva localmente solo el usuario seleccionado por 2 días.
 
 Integración Firestore (sin login)
 ---------------------------------

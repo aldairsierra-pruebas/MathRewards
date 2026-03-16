@@ -108,6 +108,23 @@
   function getCurrentLevel(){ return state.levelIndex === null ? null : config.levels[state.levelIndex]; }
   function nowIso(){ return new Date().toISOString(); }
 
+  const ACTIVE_PLAYER_STORAGE_KEY = 'misiones_active_player';
+  const ACTIVE_PLAYER_TTL_MS = 2 * 24 * 60 * 60 * 1000;
+
+  function getCachedActivePlayerId(){
+    try {
+      const raw = localStorage.getItem(ACTIVE_PLAYER_STORAGE_KEY);
+      if(!raw) return null;
+      const parsed = JSON.parse(raw);
+      if(!parsed || !parsed.playerId || !parsed.savedAt) return null;
+      const age = Date.now() - Number(parsed.savedAt);
+      if(Number.isNaN(age) || age > ACTIVE_PLAYER_TTL_MS) return null;
+      return parsed.playerId;
+    } catch(_e){
+      return null;
+    }
+  }
+
   function buildSessionId(){
     const d = new Date();
     const pad = (n) => String(n).padStart(2,'0');
@@ -786,13 +803,31 @@
   els.btnOpenMedals && els.btnOpenMedals.addEventListener('click', ()=>{ renderMedalsHistory(); els.medalsOverlay.classList.remove('hidden'); });
   els.btnCloseMedals && els.btnCloseMedals.addEventListener('click', ()=> els.medalsOverlay.classList.add('hidden'));
 
+  const cachedPlayerId = getCachedActivePlayerId();
+  if(!cachedPlayerId){
+    window.location.href = 'select-user.html';
+    return;
+  }
+  state.playerId = cachedPlayerId;
+
   setupInputTracking();
   state.sessionId = buildSessionId();
   pickDailyMissions();
   updateHUD();
   updateMedalSummary();
-  refreshPlayerInsights(state.playerId);
-  setupLoginOverlay();
+
+  if(els.overlay){ els.overlay.classList.add('hidden'); }
+
+  const syncSelectedPlayer = async ()=>{
+    if(window.FirebasePlaceholder){
+      window.FirebasePlaceholder.setActivePlayer(state.playerId);
+    }
+    await refreshPlayerInsights(state.playerId);
+    els.mensaje.innerText = `Hola ${state.playerId}, selecciona una categoría para iniciar.`;
+  };
+
+  syncSelectedPlayer();
+  window.addEventListener('firebase-ready', syncSelectedPlayer);
 
   window.__misiones_state = state;
 })();

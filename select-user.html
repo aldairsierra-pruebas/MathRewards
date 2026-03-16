@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Seleccionar usuario</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container" style="max-width:560px;">
+    <div class="card" style="margin-top:80px;">
+      <h2>👋 Selecciona tu usuario</h2>
+      <p>El usuario se recordará por 2 días en este dispositivo.</p>
+      <label for="playerSelectPage"><strong>Jugador</strong></label>
+      <select id="playerSelectPage" style="width:100%;margin-top:8px;margin-bottom:12px;font-size:16px;padding:8px;"></select>
+      <button id="btnEntrar" style="width:100%;">Entrar al juego</button>
+      <p id="status" style="margin-top:10px;">Cargando jugadores...</p>
+    </div>
+  </div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+import { getFirestore, doc, setDoc, getDoc, getDocs, collection, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBLqVCqW2s7piZQUH0dHODjK4JXAv74TdA",
+  authDomain: "asl-apk.firebaseapp.com",
+  projectId: "asl-apk",
+  storageBucket: "asl-apk.firebasestorage.app",
+  messagingSenderId: "803053462437",
+  appId: "1:803053462437:web:84bf25223991a379c77e4c"
+};
+
+const DEFAULT_PLAYERS = [
+  { id: 'Isaac', displayName: 'Isaac', avatar: 'robot-1' },
+  { id: 'Mateo', displayName: 'Mateo', avatar: 'robot-2' },
+  { id: 'Pruebas', displayName: 'Pruebas', avatar: 'robot-3' }
+];
+
+const ACTIVE_PLAYER_STORAGE_KEY = 'misiones_active_player';
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const select = document.getElementById('playerSelectPage');
+const status = document.getElementById('status');
+
+async function ensureDefaultPlayers() {
+  for (const player of DEFAULT_PLAYERS) {
+    const ref = doc(db, 'players', player.id);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      await setDoc(ref, {
+        displayName: player.displayName,
+        avatar: player.avatar,
+        active: true,
+        createdAt: serverTimestamp()
+      });
+      await setDoc(doc(db, 'players', player.id, 'stats', 'summary'), {
+        totalAttempts: 0,
+        totalCorrect: 0,
+        totalWrong: 0,
+        totalTimeMs: 0,
+        bestStreak: 0,
+        currentStreak: 0,
+        lastPlayedAt: serverTimestamp(),
+        rankPoints: 0
+      });
+    }
+  }
+}
+
+async function loadPlayers(){
+  try{
+    await ensureDefaultPlayers();
+    const snap = await getDocs(query(collection(db, 'players'), orderBy('displayName')));
+    const players = snap.docs.map((d)=>({ id:d.id, ...d.data() }));
+    select.innerHTML = '';
+    players.forEach((p)=>{
+      const op = document.createElement('option');
+      op.value = p.id;
+      op.textContent = `${p.id}${p.displayName && p.displayName !== p.id ? ` (${p.displayName})` : ''}`;
+      select.appendChild(op);
+    });
+    status.innerText = players.length ? 'Selecciona un jugador y presiona Entrar.' : 'No hay jugadores disponibles.';
+  }catch(err){
+    console.warn(err);
+    status.innerText = 'No se pudieron cargar jugadores de Firestore.';
+  }
+}
+
+function saveSelectedPlayer(playerId){
+  localStorage.setItem(ACTIVE_PLAYER_STORAGE_KEY, JSON.stringify({ playerId, savedAt: Date.now() }));
+}
+
+document.getElementById('btnEntrar').addEventListener('click', ()=>{
+  if(!select.value){
+    status.innerText = 'Debes seleccionar un jugador.';
+    return;
+  }
+  saveSelectedPlayer(select.value);
+  window.location.href = 'index.html';
+});
+
+loadPlayers();
+</script>
+</body>
+</html>
