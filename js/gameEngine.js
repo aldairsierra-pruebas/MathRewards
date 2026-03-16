@@ -58,7 +58,7 @@
     totalTimeMs:0,
     isReadyToAnswer:false,
     hasStarted:false,
-    playerId:'PR_1',
+    playerId:'Isaac',
     perLevelAdaptiveOffset: { add:0, sub:0, mul:0 },
     recentResults: { add:[], sub:[], mul:[] },
     currentMetrics:null,
@@ -77,7 +77,7 @@
   };
 
   const sGood = new Audio('https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg');
-  const sBad = new Audio('https://actions.google.com/sounds/v1/cartoon/boing.ogg');
+  const sBad = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
   const sCountdown = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
   const sLifeLost = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
   const sNextQuestion = new Audio('https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg');
@@ -107,6 +107,23 @@
   function clamp(v,min=0,max=1){ return Math.max(min, Math.min(max, v)); }
   function getCurrentLevel(){ return state.levelIndex === null ? null : config.levels[state.levelIndex]; }
   function nowIso(){ return new Date().toISOString(); }
+
+  const ACTIVE_PLAYER_STORAGE_KEY = 'misiones_active_player';
+  const ACTIVE_PLAYER_TTL_MS = 2 * 24 * 60 * 60 * 1000;
+
+  function getCachedActivePlayerId(){
+    try {
+      const raw = localStorage.getItem(ACTIVE_PLAYER_STORAGE_KEY);
+      if(!raw) return null;
+      const parsed = JSON.parse(raw);
+      if(!parsed || !parsed.playerId || !parsed.savedAt) return null;
+      const age = Date.now() - Number(parsed.savedAt);
+      if(Number.isNaN(age) || age > ACTIVE_PLAYER_TTL_MS) return null;
+      return parsed.playerId;
+    } catch(_e){
+      return null;
+    }
+  }
 
   function buildSessionId(){
     const d = new Date();
@@ -218,7 +235,10 @@
 
     if(els.insByCategory){
       const byCat = insights.byCategory || {};
-      const rows = Object.entries(byCat).map(([k,v])=>`${k}: ${v.correct || 0}/${v.attempts || 0} · HS ${v.highScore || 0}`);
+      const labels = { add:'Sumas', sub:'Restas', mul:'Multiplicaciones' };
+      const rows = Object.entries(byCat)
+        .filter(([k])=>['add','sub','mul'].includes(k))
+        .map(([k,v])=>`${labels[k]}: ${v.correct || 0}/${v.attempts || 0} · HS ${v.highScore || 0}`);
       els.insByCategory.innerHTML = rows.length ? rows.map((r)=>`<div>${r}</div>`).join('') : 'Sin datos';
     }
 
@@ -739,15 +759,15 @@
             els.overlayPlayerSelect.appendChild(option);
           });
           const active = window.FirebasePlaceholder.getActivePlayer();
-          els.overlayPlayerSelect.value = players.some((p)=>p.id===active) ? active : (players[0]?.id || 'PR_1');
+          els.overlayPlayerSelect.value = players.some((p)=>p.id===active) ? active : (players[0]?.id || '');
         } else {
-          els.overlayPlayerSelect.innerHTML = '<option value="PR_1">PR_1</option><option value="PR_2">PR_2</option>';
+          els.overlayPlayerSelect.innerHTML = '';
         }
         els.overlayStatus.innerText = 'Selecciona y presiona Ingresar';
       } catch (error) {
-        console.warn('No se pudieron cargar jugadores remotos, se usa local.', error);
-        els.overlayPlayerSelect.innerHTML = '<option value="PR_1">PR_1</option><option value="PR_2">PR_2</option>';
-        els.overlayStatus.innerText = 'Sin conexión a Firestore, usando jugadores locales';
+        console.warn('No se pudieron cargar jugadores remotos.', error);
+        els.overlayPlayerSelect.innerHTML = '';
+        els.overlayStatus.innerText = 'Sin conexión a Firestore';
       }
     };
 
@@ -783,13 +803,31 @@
   els.btnOpenMedals && els.btnOpenMedals.addEventListener('click', ()=>{ renderMedalsHistory(); els.medalsOverlay.classList.remove('hidden'); });
   els.btnCloseMedals && els.btnCloseMedals.addEventListener('click', ()=> els.medalsOverlay.classList.add('hidden'));
 
+  const cachedPlayerId = getCachedActivePlayerId();
+  if(!cachedPlayerId){
+    window.location.href = 'select-user.html';
+    return;
+  }
+  state.playerId = cachedPlayerId;
+
   setupInputTracking();
   state.sessionId = buildSessionId();
   pickDailyMissions();
   updateHUD();
   updateMedalSummary();
-  refreshPlayerInsights(state.playerId);
-  setupLoginOverlay();
+
+  if(els.overlay){ els.overlay.classList.add('hidden'); }
+
+  const syncSelectedPlayer = async ()=>{
+    if(window.FirebasePlaceholder){
+      window.FirebasePlaceholder.setActivePlayer(state.playerId);
+    }
+    await refreshPlayerInsights(state.playerId);
+    els.mensaje.innerText = `Hola ${state.playerId}, selecciona una categoría para iniciar.`;
+  };
+
+  syncSelectedPlayer();
+  window.addEventListener('firebase-ready', syncSelectedPlayer);
 
   window.__misiones_state = state;
 })();

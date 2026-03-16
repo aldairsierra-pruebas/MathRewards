@@ -1,27 +1,26 @@
 window.AppStorage = (function(){
-  const KEY = 'misiones_v1_store';
-
-  function save(obj){
-    try{
-      const raw = JSON.stringify(obj);
-      localStorage.setItem(KEY, raw);
-      if(window.FirebasePlaceholder && typeof window.FirebasePlaceholder.save === 'function'){
-        window.FirebasePlaceholder.save('progress', obj).catch(e=>console.warn('firebase save failed',e));
+  async function save(obj){
+    if(window.FirebasePlaceholder && typeof window.FirebasePlaceholder.save === 'function'){
+      try {
+        await window.FirebasePlaceholder.save('progress', obj);
+      } catch(e){
+        console.warn('firebase save failed', e);
       }
-    }catch(e){ console.warn('save failed', e); }
+    }
   }
 
-  function saveAttempt(payload){
+  async function saveAttempt(payload){
     if(window.FirebasePlaceholder && typeof window.FirebasePlaceholder.saveAttempt === 'function'){
-      window.FirebasePlaceholder.saveAttempt(payload).catch(e=>console.warn('firebase attempt save failed',e));
+      try {
+        await window.FirebasePlaceholder.saveAttempt(payload);
+      } catch(e){
+        console.warn('firebase attempt save failed', e);
+      }
     }
   }
 
   function load(){
-    try{
-      const raw = localStorage.getItem(KEY);
-      return raw ? JSON.parse(raw) : null;
-    }catch(e){ return null; }
+    return null;
   }
 
   async function syncPlayersUI(){
@@ -42,15 +41,16 @@ window.AppStorage = (function(){
       });
 
       const active = window.FirebasePlaceholder.getActivePlayer();
+      const fallback = players[0]?.id || '';
       const exists = players.some((p)=>p.id === active);
-      select.value = exists ? active : (players[0]?.id || 'PR_1');
+      select.value = exists ? active : fallback;
       if(!exists && select.value){
         window.FirebasePlaceholder.setActivePlayer(select.value);
       }
       status.innerText = `Jugador activo: ${window.FirebasePlaceholder.getActivePlayer()}`;
     }catch(e){
       console.warn(e);
-      status.innerText = 'No se pudo leer Firestore. Se usa guardado local.';
+      status.innerText = 'No se pudo leer Firestore.';
     }
   }
 
