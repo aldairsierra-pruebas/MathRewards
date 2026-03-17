@@ -104,3 +104,59 @@ transform:rotate(180deg);
 .collapsible > *:not(summary){
 margin-top:8px;
 }
+
+/* --- START: ADDED / OVERRIDES to make progreso-jugador compact when closed --- */
+
+/* Estado cerrado = compacto */
+.progreso-jugador:not([open]){
+padding:6px 10px;
+}
+
+/* Oculta contenido cuando está cerrado */
+.progreso-jugador:not([open]) > *:not(summary){
+display:none;
+}
+
+/* Summary como barra */
+.progreso-jugador summary{
+display:flex;
+align-items:center;
+justify-content:space-between;
+cursor:pointer;
+}
+
+/* Ajuste de título dentro del summary */
+.progreso-jugador summary h3{
+margin:0;
+font-size:16px;
+}
+
+/* Quitar flecha default (webkit) */
+.progreso-jugador summary::-webkit-details-marker{
+display:none;
+}
+
+/* Flecha personalizada */
+.progreso-jugador summary::after{
+content:"▸";
+font-size:14px;
+transition:transform .2s;
+}
+
+/* Rotación al abrir */
+.progreso-jugador[open] summary::after{
+transform:rotate(90deg);
+}
+
+/* Efecto hover (solo cerrado) */
+.progreso-jugador:not([open]){
+background:rgba(255,255,255,0.85);
+transition:all .2s ease;
+}
+
+.progreso-jugador:not([open]):hover{
+background:rgba(255,255,255,1);
+transform:scale(1.01);
+}
+
+/* --- END: ADDED / OVERRIDES --- */
