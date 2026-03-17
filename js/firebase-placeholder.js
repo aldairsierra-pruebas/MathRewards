@@ -29,7 +29,8 @@ const db = getFirestore(app);
 const DEFAULT_PLAYERS = [
   { id: 'Isaac', displayName: 'Isaac', avatar: 'robot-1' },
   { id: 'Mateo', displayName: 'Mateo', avatar: 'robot-2' },
-  { id: 'Pruebas', displayName: 'Pruebas', avatar: 'robot-3' }
+  { id: 'Pruebas', displayName: 'Pruebas', avatar: 'robot-3' },
+  { id: 'Invitado', displayName: 'Invitado', avatar: 'robot-5' }
 ];
 
 const ACTIVE_PLAYER_STORAGE_KEY = 'misiones_active_player';
