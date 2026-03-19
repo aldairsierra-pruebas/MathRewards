@@ -41,6 +41,44 @@
       <div id="playerActionStatus" class="small" style="margin-top:8px;"></div>
       <div id="playerList" class="player-list" style="margin-top:12px;"></div>
     </div>
+    <div class="card stack">
+      <div>
+        <h3 style="margin:0 0 8px;">🎯 Misiones</h3>
+        <div class="manage-form">
+          <input id="missionTitle" type="text" placeholder="Título misión" maxlength="80">
+          <input id="missionExpiry" type="datetime-local">
+        </div>
+        <div class="manage-form" style="margin-top:8px;">
+          <input id="missionPlayers" type="text" placeholder="Usuarios (coma) o vacío=todos">
+          <input id="missionReward" type="text" placeholder="Premio / código asociado">
+        </div>
+        <div class="manage-form" style="margin-top:8px;">
+          <input id="missionDescription" type="text" placeholder="Descripción misión" maxlength="160">
+          <button id="btnSaveMission" class="btn primary" type="button">Guardar</button>
+        </div>
+        <label class="small" style="display:flex;gap:8px;align-items:center;margin-top:8px;"><input id="missionActive" type="checkbox" checked> Activa</label>
+      </div>
+      <div id="missionListAdmin" class="list"></div>
+    </div>
+
+    <div class="card stack">
+      <div>
+        <h3 style="margin:0 0 8px;">🎁 Códigos</h3>
+        <div class="manage-form">
+          <input id="codeTitle" type="text" placeholder="Nombre código" maxlength="80">
+          <input id="codeValue" type="text" placeholder="Código / Robux" maxlength="120">
+        </div>
+        <div class="manage-form" style="margin-top:8px;">
+          <input id="codeExpiry" type="datetime-local">
+          <button id="btnSaveCode" class="btn primary" type="button">Guardar</button>
+        </div>
+        <div class="manage-form" style="margin-top:8px;">
+          <input id="codeNotes" type="text" placeholder="Notas" maxlength="160">
+        </div>
+        <label class="small" style="display:flex;gap:8px;align-items:center;margin-top:8px;"><input id="codeActive" type="checkbox" checked> Activo</label>
+      </div>
+      <div id="codeListAdmin" class="list"></div>
+    </div>
   </aside>
 
   <main class="stack">
@@ -72,7 +110,22 @@ const els = {
   playerDashboard:document.getElementById('playerDashboard'),
   newPlayerName:document.getElementById('newPlayerName'),
   btnAddPlayer:document.getElementById('btnAddPlayer'),
-  playerActionStatus:document.getElementById('playerActionStatus')
+  playerActionStatus:document.getElementById('playerActionStatus'),
+  missionTitle:document.getElementById('missionTitle'),
+  missionExpiry:document.getElementById('missionExpiry'),
+  missionPlayers:document.getElementById('missionPlayers'),
+  missionReward:document.getElementById('missionReward'),
+  missionDescription:document.getElementById('missionDescription'),
+  missionActive:document.getElementById('missionActive'),
+  btnSaveMission:document.getElementById('btnSaveMission'),
+  missionListAdmin:document.getElementById('missionListAdmin'),
+  codeTitle:document.getElementById('codeTitle'),
+  codeValue:document.getElementById('codeValue'),
+  codeExpiry:document.getElementById('codeExpiry'),
+  codeNotes:document.getElementById('codeNotes'),
+  codeActive:document.getElementById('codeActive'),
+  btnSaveCode:document.getElementById('btnSaveCode'),
+  codeListAdmin:document.getElementById('codeListAdmin')
 };
 
 function tsToDate(value){ if(!value) return null; if(typeof value.toDate === 'function') return value.toDate(); const d = new Date(value); return Number.isNaN(d.getTime()) ? null : d; }
@@ -268,6 +321,52 @@ function renderPlayerDashboard(model){
   if(btnReset){ btnReset.addEventListener('click', ()=> resetPlayerStats(model.player.id)); }
 }
 
+
+function parseCsvPlayers(value){ return String(value || '').split(',').map((item)=> item.trim()).filter(Boolean); }
+
+function renderAdminMissions(items){
+  els.missionListAdmin.innerHTML = items.length ? items.sort((a,b)=> String(a.title || '').localeCompare(String(b.title || ''), 'es')).map((mission)=>`<div class="item"><strong>${escapeHtml(mission.title || 'Misión')}</strong><div class="small">${escapeHtml(mission.description || 'Sin descripción')}</div><div class="small">Activa: ${mission.active ? 'Sí' : 'No'} · Expira: ${mission.expiresAt ? escapeHtml(new Date(mission.expiresAt).toLocaleString('es-MX')) : 'Sin fecha'}</div><div class="small">Usuarios: ${escapeHtml((mission.targetPlayerIds || []).join(', ') || 'Todos')} · Premio: ${escapeHtml(mission.rewardLabel || mission.rewardCodeId || '—')}</div><div class="actions-row" style="margin-top:8px;"><button class="btn danger" data-delete-mission="${mission.missionId}" type="button">Eliminar</button></div></div>`).join('') : '<div class="empty">Sin misiones configuradas.</div>';
+  [...els.missionListAdmin.querySelectorAll('[data-delete-mission]')].forEach((btn)=> btn.addEventListener('click', async ()=>{ if(confirm('¿Eliminar esta misión?')) await deleteDoc(doc(db,'missions',btn.dataset.deleteMission)); }));
+}
+
+function renderAdminCodes(items){
+  els.codeListAdmin.innerHTML = items.length ? items.sort((a,b)=> String(a.title || '').localeCompare(String(b.title || ''), 'es')).map((code)=>`<div class="item"><strong>${escapeHtml(code.title || 'Código')}</strong><div class="small">Código: ${escapeHtml(code.codeValue || '—')}</div><div class="small">Activo: ${code.active ? 'Sí' : 'No'} · Expira: ${code.expiresAt ? escapeHtml(new Date(code.expiresAt).toLocaleString('es-MX')) : 'Sin fecha'}</div><div class="small">Notas: ${escapeHtml(code.notes || '—')}</div><div class="actions-row" style="margin-top:8px;"><button class="btn danger" data-delete-code="${code.codeId}" type="button">Eliminar</button></div></div>`).join('') : '<div class="empty">Sin códigos guardados.</div>';
+  [...els.codeListAdmin.querySelectorAll('[data-delete-code]')].forEach((btn)=> btn.addEventListener('click', async ()=>{ if(confirm('¿Eliminar este código?')) await deleteDoc(doc(db,'reward_codes',btn.dataset.deleteCode)); }));
+}
+
+async function saveMissionAdmin(){
+  const title = normalizePlayerId(els.missionTitle.value);
+  if(!title){ setStatus('Escribe un título de misión.', true); return; }
+  await setDoc(doc(db,'missions', title.toLowerCase().replace(/[^a-z0-9]+/g,'-')), {
+    title,
+    description: String(els.missionDescription.value || '').trim(),
+    active: Boolean(els.missionActive.checked),
+    targetPlayerIds: parseCsvPlayers(els.missionPlayers.value),
+    expiresAt: els.missionExpiry.value ? new Date(els.missionExpiry.value).toISOString() : '',
+    rewardLabel: String(els.missionReward.value || '').trim(),
+    updatedAt: serverTimestamp(),
+    createdAt: serverTimestamp()
+  }, { merge:true });
+  els.missionTitle.value=''; els.missionDescription.value=''; els.missionPlayers.value=''; els.missionReward.value=''; els.missionExpiry.value=''; els.missionActive.checked=true;
+  setStatus('Misión guardada.');
+}
+
+async function saveCodeAdmin(){
+  const title = normalizePlayerId(els.codeTitle.value);
+  if(!title){ setStatus('Escribe un nombre para el código.', true); return; }
+  await setDoc(doc(db,'reward_codes', title.toLowerCase().replace(/[^a-z0-9]+/g,'-')), {
+    title,
+    codeValue: String(els.codeValue.value || '').trim(),
+    active: Boolean(els.codeActive.checked),
+    expiresAt: els.codeExpiry.value ? new Date(els.codeExpiry.value).toISOString() : '',
+    notes: String(els.codeNotes.value || '').trim(),
+    updatedAt: serverTimestamp(),
+    createdAt: serverTimestamp()
+  }, { merge:true });
+  els.codeTitle.value=''; els.codeValue.value=''; els.codeExpiry.value=''; els.codeNotes.value=''; els.codeActive.checked=true;
+  setStatus('Código guardado.');
+}
+
 function clearDetailSubs(){ state.detailUnsubs.forEach((fn)=>fn && fn()); state.detailUnsubs = []; }
 function selectPlayer(playerId){ state.selectedPlayerId = playerId; renderPlayerList(); subscribePlayerDetail(playerId); }
 
@@ -341,6 +440,8 @@ async function resetPlayerStats(playerId, { skipConfirm = false } = {}){
     achievementsSnap.forEach((docSnap)=> deleteRefs.push(docSnap.ref));
     const loginsSnap = await getDocs(collection(db,'players',playerId,'logins'));
     loginsSnap.forEach((docSnap)=> deleteRefs.push(docSnap.ref));
+    const compactDaySnap = await getDocs(collection(db,'players',playerId,'stats_by_day'));
+    compactDaySnap.forEach((docSnap)=> deleteRefs.push(docSnap.ref));
     const daySnap = await getDocs(collection(db,'players',playerId,'stats','summary','by_day'));
     for(const dayDoc of daySnap.docs){
       const catSnap = await getDocs(collection(db,'players',playerId,'stats','summary','by_day',dayDoc.id,'categorias'));
@@ -370,7 +471,12 @@ async function deletePlayer(playerId){
 }
 
 els.btnAddPlayer.addEventListener('click', createPlayer);
+els.btnSaveMission.addEventListener('click', saveMissionAdmin);
+els.btnSaveCode.addEventListener('click', saveCodeAdmin);
 els.newPlayerName.addEventListener('keydown', (event)=>{ if(event.key === 'Enter'){ event.preventDefault(); createPlayer(); } });
+
+onSnapshot(collection(db,'missions'), (snap)=> renderAdminMissions(snap.docs.map((d)=>({ missionId:d.id, ...d.data() }))));
+onSnapshot(collection(db,'reward_codes'), (snap)=> renderAdminCodes(snap.docs.map((d)=>({ codeId:d.id, ...d.data() }))));
 
 onSnapshot(collection(db,'players'), (snap)=>{
   const incomingIds = new Set(snap.docs.map((d)=>d.id));

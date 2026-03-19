@@ -75,6 +75,7 @@
       bestStreak:0
     },
     activeMissions: [],
+    remoteMissions: [],
     currentCategory: { attempts:0, correct:0, scoreSum:0 },
     categoryAggregates: { add:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, sub:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, mul:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, challenge:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0} },
     medalHistory: [],
@@ -135,7 +136,7 @@
     const d = new Date();
     const pad = (n, size = 2) => String(n).padStart(size,'0');
     const modeLabel = ({ add:'sumas', sub:'restas', mul:'multiplicaciones', challenge:'desafio' }[mode] || String(mode || 'general').toLowerCase().replace(/[^a-z0-9]+/g,'-'));
-    return `${pad(d.getDate())}${pad(d.getMonth()+1)}${d.getFullYear()}_${pad(d.getHours())}${pad(d.getMinutes())}_${modeLabel}`;
+    return `${pad(d.getDate())}${pad(d.getMonth()+1)}${d.getFullYear()}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}_${modeLabel}`;
   }
 
   function daySeed(){
@@ -157,13 +158,21 @@
   function renderMissions(){
     if(!els.missionList) return;
     els.missionList.innerHTML = '';
-    state.activeMissions.forEach((m)=>{
+    const localMissions = (state.activeMissions || []).map((m)=> ({
+      className: `mission-item ${m.completed ? 'done' : ''}` ,
+      html: `<strong>${m.title}</strong><br><small>${m.description}</small><br><small>Progreso: ${m.group === 'daily' && m.id === 'daily_5m' ? `${Math.floor(m.progress)}s/${m.target}s` : `${m.progress}/${m.target}`}</small>`
+    }));
+    const remoteMissions = (state.remoteMissions || []).map((m)=> ({
+      className: 'mission-item',
+      html: `<strong>🎯 ${m.title || 'Misión personalizada'}</strong><br><small>${m.description || 'Sin descripción'}</small><br><small>Expira: ${m.expiresAt ? new Date(m.expiresAt).toLocaleString('es-MX') : 'Sin vencimiento'}</small>${m.rewardLabel ? `<br><small>Premio: ${m.rewardLabel}</small>` : ''}`
+    }));
+    [...localMissions, ...remoteMissions].forEach((entry)=>{
       const div = document.createElement('div');
-      div.className = `mission-item ${m.completed ? 'done' : ''}`;
-      const prog = m.group === 'daily' && m.id === 'daily_5m' ? `${Math.floor(m.progress)}s/${m.target}s` : `${m.progress}/${m.target}`;
-      div.innerHTML = `<strong>${m.title}</strong><br><small>${m.description}</small><br><small>Progreso: ${prog}</small>`;
+      div.className = entry.className;
+      div.innerHTML = entry.html;
       els.missionList.appendChild(div);
     });
+    if(!localMissions.length && !remoteMissions.length){ els.missionList.innerHTML = '<div class="mission-item">Sin misiones activas.</div>'; }
   }
 
 
@@ -282,6 +291,17 @@
         scoreSum: Number((d.avgResponseScore || 0) * (d.attempts || 0))
       };
     });
+  }
+
+
+  async function refreshRemoteMissions(playerId){
+    if(!window.FirebasePlaceholder || typeof window.FirebasePlaceholder.listPlayerMissions !== 'function'){ return; }
+    try{
+      state.remoteMissions = await window.FirebasePlaceholder.listPlayerMissions(playerId || state.playerId);
+      renderMissions();
+    }catch(error){
+      console.warn('No se pudieron cargar misiones remotas.', error);
+    }
   }
 
   async function refreshPlayerInsights(playerId){
@@ -1011,6 +1031,7 @@
       els.overlay.classList.add('hidden');
       els.mensaje.innerText = `Hola ${selected}, selecciona una categoría para iniciar.`;
       await refreshPlayerInsights(selected);
+      await refreshRemoteMissions(selected);
     });
 
     await syncPlayers();
@@ -1048,6 +1069,7 @@
       window.FirebasePlaceholder.setActivePlayer(state.playerId);
     }
     await refreshPlayerInsights(state.playerId);
+    await refreshRemoteMissions(state.playerId);
     await syncPresence({ currentStreak: state.stats.correctStreak, skipsRemaining: state.skipsRemaining });
     els.mensaje.innerText = `Hola ${state.playerId}, selecciona una categoría para iniciar.`;
   };
