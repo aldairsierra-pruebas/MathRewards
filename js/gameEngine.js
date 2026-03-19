@@ -355,6 +355,9 @@
         }
       }
       els.respuesta.value = cropped;
+      if(state.levelIndex !== null){
+        schedulePresenceUpdate({ currentQuestion: currentQuestionLabel, currentResponseDraft: cropped });
+      }
     });
 
     els.respuesta.addEventListener('keydown', (e)=>{
@@ -365,6 +368,14 @@
 
   function setGameControlsEnabled(enabled){ els.btn.disabled = !enabled; els.btnSkip.disabled = !enabled; els.respuesta.disabled = !enabled; }
   function setDefaultInput(){ els.respuesta.value = ''; }
+  let presenceInputDebounce = null;
+
+  function schedulePresenceUpdate(extra = {}, delayMs = 250){
+    if(presenceInputDebounce){ clearTimeout(presenceInputDebounce); }
+    presenceInputDebounce = setTimeout(()=>{
+      syncPresence(extra).catch(()=>{});
+    }, delayMs);
+  }
 
   function updateHearts(animatedLostIndex){
     els.vidasUI.innerHTML = '';
@@ -528,6 +539,9 @@
     }
 
     updateHUD();
+    if(state.levelIndex !== null){
+      syncPresence({ currentQuestion: currentQuestionLabel, currentResponseDraft: '', lastExpectedAnswer: currentAnswer }).catch(()=>{});
+    }
   }
 
   function scheduleNextQuestion(delayMs = 3000){
@@ -677,7 +691,9 @@
       correctToday: payload.correct,
       wrongToday: payload.wrong,
       recentAccuracy: payload.recentAttempts ? Math.round((payload.recentCorrect / payload.recentAttempts) * 100) : 0,
-      avgResponseTimeMsRecent: payload.recentAttempts ? Math.round(payload.recentTimeMs / payload.recentAttempts) : 0
+      avgResponseTimeMsRecent: payload.recentAttempts ? Math.round(payload.recentTimeMs / payload.recentAttempts) : 0,
+      currentQuestion: currentQuestionLabel,
+      currentResponseDraft: ''
     }).catch(()=>{});
   }
 
@@ -853,7 +869,7 @@
     els.categoryMenu.classList.add('hidden');
     els.gameArea.classList.remove('hidden');
     els.mensaje.innerText = `Elegiste ${getCurrentLevel().name}. Presiona Iniciar para comenzar.`;
-    syncPresence({ currentCategory: getCurrentLevel().name, currentStreak: state.stats.correctStreak }).catch(()=>{});
+    syncPresence({ currentCategory: getCurrentLevel().name, currentStreak: state.stats.correctStreak, currentQuestion: currentQuestionLabel, currentResponseDraft: '' }).catch(()=>{});
     generateQuestion();
   }
 
