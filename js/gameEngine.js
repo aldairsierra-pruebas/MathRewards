@@ -131,8 +131,9 @@
 
   function buildSessionId(){
     const d = new Date();
-    const pad = (n) => String(n).padStart(2,'0');
-    return `s_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+    const pad = (n, size = 2) => String(n).padStart(size,'0');
+    const randomSuffix = Math.random().toString(36).slice(2,6);
+    return `s_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}${pad(d.getMilliseconds(),3)}_${randomSuffix}`;
   }
 
   function daySeed(){
@@ -562,6 +563,15 @@
     const totalMs = Math.max(0, metrics.submit_time_ms - metrics.time_shown_ms);
     const difficulty = deriveDifficulty(currentOperationType, currentOperands[0], currentOperands[1]);
     const responseScore = scoreResponse(Boolean(isCorrect), difficulty.score, totalMs/1000, writeMs/1000, metrics.edits_count, currentOperationType);
+    const categoryKey = lvl.type;
+    const currentAggregate = state.categoryAggregates[categoryKey] || { attempts:0, correct:0, wrong:0, highScore:0, scoreSum:0 };
+    const nextAggregate = {
+      attempts: Number(currentAggregate.attempts || 0) + 1,
+      correct: Number(currentAggregate.correct || 0) + (isCorrect ? 1 : 0),
+      wrong: Number(currentAggregate.wrong || 0) + (isCorrect ? 0 : 1),
+      highScore: Math.max(Number(currentAggregate.highScore || 0), Number(responseScore || 0)),
+      scoreSum: Number(currentAggregate.scoreSum || 0) + Number(responseScore || 0)
+    };
 
     return {
       sessionId: state.sessionId,
@@ -601,11 +611,11 @@
       device: metrics.device_info,
       deviceType: metrics.device_info.type,
       clientDate: nowIso(),
-      totalAttemptsCategory: state.categoryAggregates[lvl.type]?.attempts || 0,
-      correctCategory: state.categoryAggregates[lvl.type]?.correct || 0,
-      wrongCategory: state.categoryAggregates[lvl.type]?.wrong || 0,
-      highScoreCategory: state.categoryAggregates[lvl.type]?.highScore || 0,
-      avgResponseScoreCategory: (state.categoryAggregates[lvl.type]?.attempts || 0) > 0 ? Math.round((state.categoryAggregates[lvl.type].scoreSum || 0) / state.categoryAggregates[lvl.type].attempts) : 0,
+      totalAttemptsCategory: nextAggregate.attempts,
+      correctCategory: nextAggregate.correct,
+      wrongCategory: nextAggregate.wrong,
+      highScoreCategory: nextAggregate.highScore,
+      avgResponseScoreCategory: nextAggregate.attempts > 0 ? Math.round(nextAggregate.scoreSum / nextAggregate.attempts) : 0,
       currentStreak: state.stats.correctStreak,
       bestStreak: state.stats.bestStreak,
       recentAttempts: Math.min((state.recentResults[lvl.type] || []).length, 10),

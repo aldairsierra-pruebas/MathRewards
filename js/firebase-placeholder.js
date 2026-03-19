@@ -63,8 +63,9 @@ let activePlayerId = getStoredActivePlayer() || DEFAULT_PLAYERS[0].id;
 
 function makeSessionId() {
   const d = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  return `s_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+  const pad = (n, size = 2) => String(n).padStart(size, '0');
+  const randomSuffix = Math.random().toString(36).slice(2, 6);
+  return `s_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}${pad(d.getMilliseconds(), 3)}_${randomSuffix}`;
 }
 
 function toSpanishCategory(mode) {
