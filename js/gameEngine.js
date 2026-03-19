@@ -9,8 +9,13 @@
     ],
     basePoints: 10,
     maxLives: 3,
-    modelVersion: 'v3-adaptive-missions'
+    modelVersion: 'v4-adaptive-mastery'
   };
+
+  const ADAPTIVE_WINDOW_SIZE = 10;
+  const ADAPTIVE_EVAL_WINDOW = 5;
+  const ADAPTIVE_OFFSET_LIMITS = { min:-2, max:3 };
+  const ADAPTIVE_PROFILE_STORAGE_KEY = 'math_rewards_adaptive_profiles';
 
   const MISSION_POOL = {
     speed: [
@@ -62,7 +67,7 @@
     isReadyToAnswer:false,
     hasStarted:false,
     playerId:'Isaac',
-    perLevelAdaptiveOffset: { add:0, sub:0, mul:0 },
+    perLevelAdaptiveOffset: { add:0, sub:0, mul:0, challenge:0 },
     recentResults: { add:[], sub:[], mul:[], challenge:[] },
     currentMetrics:null,
     stats: {
@@ -109,6 +114,7 @@
   let currentQuestionLabel = '';
   let currentOperands = [0,0];
   let currentOperationType = 'add';
+  let currentQuestionMeta = { profile:'add_basic', label:'básica', difficultyScore:1 };
 
   function rand(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
   function clamp(v,min=0,max=1){ return Math.max(min, Math.min(max, v)); }
@@ -142,6 +148,52 @@
   function daySeed(){
     const d = new Date();
     return Number(`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`);
+  }
+
+
+  function normalizeAdaptiveOffsets(raw = {}){
+    return {
+      add: clamp(Number(raw.add ?? 0), ADAPTIVE_OFFSET_LIMITS.min, ADAPTIVE_OFFSET_LIMITS.max),
+      sub: clamp(Number(raw.sub ?? 0), ADAPTIVE_OFFSET_LIMITS.min, ADAPTIVE_OFFSET_LIMITS.max),
+      mul: clamp(Number(raw.mul ?? 0), ADAPTIVE_OFFSET_LIMITS.min, ADAPTIVE_OFFSET_LIMITS.max),
+      challenge: clamp(Number(raw.challenge ?? 0), ADAPTIVE_OFFSET_LIMITS.min, ADAPTIVE_OFFSET_LIMITS.max)
+    };
+  }
+
+  function loadAdaptiveProfile(playerId){
+    if(!playerId){ return normalizeAdaptiveOffsets(); }
+    try {
+      const raw = localStorage.getItem(ADAPTIVE_PROFILE_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      return normalizeAdaptiveOffsets(parsed[playerId] || {});
+    } catch(_error){
+      return normalizeAdaptiveOffsets();
+    }
+  }
+
+  function saveAdaptiveProfile(playerId){
+    if(!playerId){ return; }
+    try {
+      const raw = localStorage.getItem(ADAPTIVE_PROFILE_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      parsed[playerId] = normalizeAdaptiveOffsets(state.perLevelAdaptiveOffset);
+      localStorage.setItem(ADAPTIVE_PROFILE_STORAGE_KEY, JSON.stringify(parsed));
+    } catch(error){
+      console.warn('No se pudo guardar perfil adaptativo local.', error);
+    }
+  }
+
+  function getOffsetForType(type){
+    return clamp(Number(state.perLevelAdaptiveOffset[type] || 0), ADAPTIVE_OFFSET_LIMITS.min, ADAPTIVE_OFFSET_LIMITS.max);
+  }
+
+  function getDifficultyTier(type){
+    return getOffsetForType(type) - ADAPTIVE_OFFSET_LIMITS.min;
+  }
+
+  function weightedAverage(values){
+    if(!values.length){ return 0; }
+    return values.reduce((sum, value, index)=> sum + (value * (index + 1)), 0) / values.reduce((sum, _value, index)=> sum + index + 1, 0);
   }
 
   function pickDailyMissions(){
@@ -441,71 +493,99 @@
 
   function randomFrom(items){ return items[rand(0, items.length - 1)]; }
 
-  function generateChallengeQuestion(){
-    const challengeType = randomFrom(['add','sub','mul']);
-    let a;
-    let b;
-    let label;
-    let answer;
-    let sign;
-
-    if(challengeType === 'add'){
-      a = rand(47, 89);
-      b = rand(16, 38);
-      if(((a % 10) + (b % 10)) < 10){ b += 10; }
-      answer = a + b;
-      sign = '+';
-      label = `${a} + ${b}`;
-    } else if(challengeType === 'sub'){
-      a = rand(54, 98);
-      b = rand(18, 47);
-      if((a % 10) >= (b % 10)){ b = Math.min(b + 7, a - 1); }
-      if(b >= a){ [a, b] = [b + rand(12, 24), a]; }
-      answer = a - b;
-      sign = '-';
-      label = `${a} - ${b}`;
-    } else {
-      a = rand(11, 19);
-      b = rand(4, 9);
-      answer = a * b;
-      sign = '×';
-      label = `${a} × ${b}`;
-    }
-
-    return { type: challengeType, a, b, answer, sign, label };
+  function buildAdditionQuestion(tier){
+    const profiles = [
+      ()=> { const a = rand(1, 9); const b = rand(1, 9); return { a, b, profile:'add_fluency', label:'sumas de una cifra', difficultyScore:1 }; },
+      ()=> { const a = rand(10, 40); let b = rand(10, 40); if(((a % 10) + (b % 10)) >= 10){ b = Math.max(10, b - ((a % 10) + (b % 10) - 9)); } return { a, b, profile:'add_no_carry', label:'sumas sin llevar', difficultyScore:2 }; },
+      ()=> { const a = rand(18, 69); let b = rand(11, 39); if(((a % 10) + (b % 10)) < 10){ b += 10 - (((a % 10) + (b % 10)) % 10); } return { a, b, profile:'add_with_carry', label:'sumas con llevar', difficultyScore:3 }; },
+      ()=> { const a = rand(35, 89); const b = rand(24, 79); return { a, b, profile:'add_double_carry', label:'sumas de dos cifras con llevar', difficultyScore:4 }; },
+      ()=> { const a = rand(125, 489); const b = rand(115, 389); return { a, b, profile:'add_three_digits', label:'sumas de tres cifras', difficultyScore:5 }; },
+      ()=> { const a = rand(245, 789); const b = rand(165, 698); return { a, b, profile:'add_challenge', label:'sumas de reto', difficultyScore:6 }; }
+    ];
+    const built = profiles[Math.max(0, Math.min(profiles.length - 1, tier))]();
+    return { ...built, answer: built.a + built.b, sign:'+', labelText: `${built.a} + ${built.b}` };
   }
 
-  function deriveDifficulty(type, a, b){
-    if(type === 'add'){
-      const carry = ((a % 10) + (b % 10)) >= 10;
-      if(a % 10 === 0 && b % 10 === 0){ return { score:1, label:'decenas exactas' }; }
-      return carry ? { score:3, label:'suma con llevar' } : { score:2, label:'suma sin llevar' };
-    }
-    if(type === 'sub'){
-      const borrow = (a % 10) < (b % 10);
-      return borrow ? { score:3, label:'resta con préstamo' } : { score:2, label:'resta sin préstamo' };
-    }
-    if((a <= 5 && b <= 5) || a === 10 || b === 10){ return { score:2, label:'tabla básica' }; }
-    if(a <= 9 && b <= 9){ return { score:3, label:'tabla avanzada' }; }
-    return { score:4, label:'multiplicación extendida' };
+  function buildSubtractionQuestion(tier){
+    const profiles = [
+      ()=> { let a = rand(4, 18); let b = rand(1, a - 1); return { a, b, profile:'sub_fluency', label:'restas simples', difficultyScore:1 }; },
+      ()=> { let a = rand(20, 60); let b = rand(10, 39); if((a % 10) < (b % 10)){ b = Math.max(10, b - ((b % 10) - (a % 10))); } if(b >= a){ b = a - rand(1, 9); } return { a, b, profile:'sub_no_borrow', label:'restas sin préstamo', difficultyScore:2 }; },
+      ()=> { let a = rand(31, 79); let b = rand(12, 48); if((a % 10) >= (b % 10)){ b = Math.min(a - 1, b + 10); } if(b >= a){ a = b + rand(11, 25); } return { a, b, profile:'sub_with_borrow', label:'restas con préstamo', difficultyScore:3 }; },
+      ()=> { let a = rand(60, 99); let b = rand(25, 78); if((a % 10) >= (b % 10)){ b = Math.min(a - 1, b + 10); } if(b >= a){ a = b + rand(11, 18); } return { a, b, profile:'sub_two_digit_borrow', label:'restas de dos cifras con préstamo', difficultyScore:4 }; },
+      ()=> { let a = rand(120, 480); let b = rand(35, 289); if((a % 10) >= (b % 10)){ b = Math.min(a - 1, b + 10); } if(b >= a){ a = b + rand(25, 80); } return { a, b, profile:'sub_three_digits', label:'restas de tres cifras', difficultyScore:5 }; },
+      ()=> { let a = rand(300, 950); let b = rand(120, 780); if((a % 10) >= (b % 10)){ b = Math.min(a - 1, b + 10); } if(b >= a){ a = b + rand(50, 120); } return { a, b, profile:'sub_challenge', label:'restas de reto', difficultyScore:6 }; }
+    ];
+    const built = profiles[Math.max(0, Math.min(profiles.length - 1, tier))]();
+    return { ...built, answer: built.a - built.b, sign:'-', labelText: `${built.a} - ${built.b}` };
+  }
+
+  function buildMultiplicationQuestion(tier){
+    const profiles = [
+      ()=> { const easy = randomFrom([1,2,5,10]); const other = rand(1, 10); return { a: easy, b: other, profile:'mul_easy_tables', label:'tablas fáciles', difficultyScore:1 }; },
+      ()=> { const a = rand(2, 6); const b = rand(2, 10); return { a, b, profile:'mul_small_tables', label:'tablas pequeñas', difficultyScore:2 }; },
+      ()=> { const a = rand(4, 9); const b = rand(3, 10); return { a, b, profile:'mul_mixed_tables', label:'tablas mixtas', difficultyScore:3 }; },
+      ()=> { const pairs = [[7,8],[8,9],[6,7],[7,9],[8,8],[9,9]]; const [a,b] = randomFrom(pairs); return { a, b, profile:'mul_hard_tables', label:'tablas avanzadas', difficultyScore:4 }; },
+      ()=> { const a = rand(11, 19); const b = rand(3, 9); return { a, b, profile:'mul_two_digit', label:'multiplicación de dos dígitos por una cifra', difficultyScore:5 }; },
+      ()=> { const a = rand(12, 24); const b = rand(6, 12); return { a, b, profile:'mul_challenge', label:'multiplicación de reto', difficultyScore:6 }; }
+    ];
+    const built = profiles[Math.max(0, Math.min(profiles.length - 1, tier))]();
+    return { ...built, answer: built.a * built.b, sign:'×', labelText: `${built.a} × ${built.b}` };
+  }
+
+  function generateChallengeQuestion(){
+    const challengeType = randomFrom(['add','sub','mul']);
+    const challengeTier = Math.round((getDifficultyTier(challengeType) + getDifficultyTier('challenge')) / 2);
+    const question = challengeType === 'add'
+      ? buildAdditionQuestion(Math.max(2, challengeTier))
+      : challengeType === 'sub'
+        ? buildSubtractionQuestion(Math.max(2, challengeTier))
+        : buildMultiplicationQuestion(Math.max(2, challengeTier));
+    return { type: challengeType, ...question, label: question.labelText };
+  }
+
+  function deriveDifficulty(){
+    return { score: Number(currentQuestionMeta.difficultyScore || 1), label: currentQuestionMeta.label || 'general' };
   }
 
   function getAdaptiveBounds(type){
-    const offset = state.perLevelAdaptiveOffset[type] || 0;
-    if(type === 'add') return offset <= -1 ? { min:1, max:20 } : offset === 0 ? { min:10, max:60 } : { min:25, max:99 };
-    if(type === 'sub') return offset <= -1 ? { min:5, max:30 } : offset === 0 ? { min:20, max:80 } : { min:40, max:99 };
-    return offset <= -1 ? { min:2, max:7 } : offset === 0 ? { min:3, max:10 } : { min:5, max:12 };
+    const tier = getDifficultyTier(type);
+    if(type === 'challenge'){
+      return { tier, label:['muy fácil','fácil','normal','difícil','muy difícil','reto'][tier] || 'reto' };
+    }
+    const builders = { add: buildAdditionQuestion, sub: buildSubtractionQuestion, mul: buildMultiplicationQuestion };
+    return { tier, generator: builders[type] };
   }
 
   function adjustDifficultyProfile(type){
     const recent = state.recentResults[type] || [];
-    if(recent.length < 2){ return; }
-    const last3 = recent.slice(-3);
-    const allCorrectFast = last3.length === 3 && last3.every((r)=>r.correct && r.totalTimeSec <= r.fastThreshold);
-    const last2 = recent.slice(-2);
-    const anyWrongOrSlow = last2.length === 2 && last2.some((r)=>!r.correct || r.totalTimeSec > r.slowThreshold);
-    if(allCorrectFast){ state.perLevelAdaptiveOffset[type] = Math.min(2, (state.perLevelAdaptiveOffset[type] || 0) + 1); }
-    else if(anyWrongOrSlow){ state.perLevelAdaptiveOffset[type] = Math.max(-1, (state.perLevelAdaptiveOffset[type] || 0) - 1); }
+    const window = recent.slice(-ADAPTIVE_EVAL_WINDOW);
+    if(window.length < ADAPTIVE_EVAL_WINDOW){ return; }
+
+    const accuracy = window.filter((r)=>r.correct).length / window.length;
+    const avgTime = weightedAverage(window.map((r)=>r.totalTimeSec));
+    const avgScore = weightedAverage(window.map((r)=>r.responseScore));
+    const avgThinkTime = weightedAverage(window.map((r)=>r.thinkTimeSec));
+    const avgEdits = weightedAverage(window.map((r)=>r.editsCount));
+    const streak = (()=>{
+      let value = 0;
+      for(let idx = recent.length - 1; idx >= 0; idx--){
+        if(!recent[idx].correct){ break; }
+        value += 1;
+      }
+      return value;
+    })();
+    const wrongsInLast5 = window.filter((r)=>!r.correct).length;
+    const slowCount = window.filter((r)=>r.totalTimeSec > r.slowThreshold).length;
+    const lowScoreCount = window.filter((r)=>r.responseScore < r.lowScoreThreshold).length;
+
+    const shouldIncrease = accuracy >= 0.85 && avgTime <= window[window.length - 1].fastThreshold && avgScore >= 72 && avgThinkTime <= window[window.length - 1].thinkFastThreshold && streak >= 3;
+    const shouldDecrease = accuracy <= 0.6 || wrongsInLast5 >= 2 || slowCount >= 3 || (avgScore < 45 && lowScoreCount >= 3) || (avgEdits >= 2.5 && avgTime > window[window.length - 1].slowThreshold);
+
+    if(shouldIncrease){
+      state.perLevelAdaptiveOffset[type] = Math.min(ADAPTIVE_OFFSET_LIMITS.max, getOffsetForType(type) + 1);
+    } else if(shouldDecrease){
+      state.perLevelAdaptiveOffset[type] = Math.max(ADAPTIVE_OFFSET_LIMITS.min, getOffsetForType(type) - 1);
+    }
   }
 
   function beginQuestionInteraction(){
@@ -530,24 +610,26 @@
     els.tiempo.innerText = '0';
 
     let a,b;
+    let question;
     if(lvl.type === 'challenge'){
       const challenge = generateChallengeQuestion();
       a = challenge.a;
       b = challenge.b;
       currentAnswer = challenge.answer;
       currentOperationType = challenge.type;
+      currentQuestionMeta = { profile: challenge.profile, label: `${challenge.label}`, difficultyScore: challenge.difficultyScore };
       els.signo.innerText = challenge.sign;
       currentQuestionLabel = challenge.label;
     } else {
       const bounds = getAdaptiveBounds(lvl.type);
       currentOperationType = lvl.type;
-      if(lvl.type === 'add'){
-        a = rand(bounds.min,bounds.max); b = rand(bounds.min,bounds.max); currentAnswer = a+b; els.signo.innerText = '+'; currentQuestionLabel = `${a} + ${b}`;
-      } else if(lvl.type === 'sub'){
-        a = rand(bounds.min,bounds.max); b = rand(bounds.min,bounds.max); if(b>a){ [a,b]=[b,a]; } currentAnswer = a-b; els.signo.innerText = '-'; currentQuestionLabel = `${a} - ${b}`;
-      } else {
-        a = rand(bounds.min,bounds.max); b = rand(bounds.min,bounds.max); currentAnswer = a*b; els.signo.innerText = '×'; currentQuestionLabel = `${a} × ${b}`;
-      }
+      question = bounds.generator(bounds.tier);
+      a = question.a;
+      b = question.b;
+      currentAnswer = question.answer;
+      currentQuestionMeta = { profile: question.profile, label: question.label, difficultyScore: question.difficultyScore };
+      els.signo.innerText = question.sign;
+      currentQuestionLabel = question.labelText;
     }
 
     currentOperands = [a,b];
@@ -636,7 +718,7 @@
     const thinkMs = Math.max(0, firstMs - metrics.time_shown_ms);
     const writeMs = Math.max(0, metrics.submit_time_ms - firstMs);
     const totalMs = Math.max(0, metrics.submit_time_ms - metrics.time_shown_ms);
-    const difficulty = deriveDifficulty(currentOperationType, currentOperands[0], currentOperands[1]);
+    const difficulty = deriveDifficulty();
     const responseScore = scoreResponse(Boolean(isCorrect), difficulty.score, totalMs/1000, writeMs/1000, metrics.edits_count, currentOperationType);
     const categoryKey = lvl.type;
     const currentAggregate = state.categoryAggregates[categoryKey] || { attempts:0, correct:0, wrong:0, highScore:0, scoreSum:0 };
@@ -663,6 +745,7 @@
       difficulty: lvl.name,
       difficultyLabel: difficulty.label,
       difficultyScore: difficulty.score,
+      skillProfile: currentQuestionMeta.profile || null,
       mode: lvl.type,
       operationType: currentOperationType,
       operands: currentOperands,
@@ -729,10 +812,17 @@
     state.recentResults[type].push({
       correct: payload.isCorrect,
       totalTimeSec: payload.totalTimeMs / 1000,
-      fastThreshold: ({ add:20, sub:25, mul:20 }[type] || 22),
-      slowThreshold: ({ add:40, sub:45, mul:40 }[type] || 42)
+      thinkTimeSec: payload.thinkTimeMs / 1000,
+      writeTimeSec: payload.writeTimeMs / 1000,
+      responseScore: Number(payload.responseScore || 0),
+      editsCount: Number(payload.editsCount || 0),
+      skillProfile: payload.skillProfile || null,
+      fastThreshold: ({ add:16, sub:18, mul:14, challenge:20 }[type] || 18),
+      slowThreshold: ({ add:30, sub:34, mul:26, challenge:36 }[type] || 32),
+      thinkFastThreshold: ({ add:5, sub:6, mul:4, challenge:7 }[type] || 5),
+      lowScoreThreshold: ({ add:45, sub:45, mul:50, challenge:48 }[type] || 45)
     });
-    if(state.recentResults[type].length > 8){ state.recentResults[type].shift(); }
+    if(state.recentResults[type].length > ADAPTIVE_WINDOW_SIZE){ state.recentResults[type].shift(); }
 
     const agg = state.categoryAggregates[type] || { attempts:0, correct:0, wrong:0, highScore:0, scoreSum:0 };
     agg.attempts += 1;
@@ -742,6 +832,8 @@
     state.categoryAggregates[type] = agg;
 
     adjustDifficultyProfile(type);
+    if(payload.mode === 'challenge' && payload.operationType){ adjustDifficultyProfile(payload.operationType); }
+    saveAdaptiveProfile(state.playerId);
     updateMissionProgress(payload);
 
     syncPresence({
@@ -775,7 +867,7 @@
         xp: state.xp,
         levelIndex: state.levelIndex,
         medals: state.medals,
-        adaptive: state.perLevelAdaptiveOffset,
+        adaptive: normalizeAdaptiveOffsets(state.perLevelAdaptiveOffset),
         isActive: Boolean(state.hasStarted || state.levelIndex !== null),
         date: nowIso()
       });
@@ -873,7 +965,7 @@
       sGood.currentTime = 0; sGood.play().catch(()=>{});
 
       const attemptPayload = buildAttemptPayload({ answer, isCorrect:true, skipped:false, timedOut:false });
-      const difficulty = deriveDifficulty(currentOperationType, currentOperands[0], currentOperands[1]);
+      const difficulty = deriveDifficulty();
       const gained = config.basePoints + Math.floor((attemptPayload.responseScore || 0) / 20) + difficulty.score;
       state.points += gained;
       state.questionCount++;
@@ -1021,6 +1113,7 @@
       }
 
       state.playerId = selected;
+      state.perLevelAdaptiveOffset = loadAdaptiveProfile(selected);
       if(window.FirebasePlaceholder){
         window.FirebasePlaceholder.setActivePlayer(selected);
         try { await window.FirebasePlaceholder.logLogin({ playerId: selected }); }
@@ -1055,6 +1148,7 @@
     return;
   }
   state.playerId = cachedPlayerId;
+  state.perLevelAdaptiveOffset = loadAdaptiveProfile(cachedPlayerId);
 
   setupInputTracking();
   state.sessionId = null;
