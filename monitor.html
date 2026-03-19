@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Monitor de jugadores</title>
+<link rel="icon" type="image/x-icon" href="favicon_Math.ico">
+<style>
+:root{--bg:#f3f6fb;--card:#fff;--line:#d9e2ef;--ink:#13233d;--muted:#5f6f86;--ok:#1f9d57;--warn:#d97706;--bad:#d14343;--accent:#3559e0}
+*{box-sizing:border-box} body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--ink)}
+a{color:var(--accent)}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px;max-width:1440px;margin:0 auto;padding:20px}
+.stack{display:grid;gap:16px}.card{background:var(--card);border-radius:16px;padding:16px;box-shadow:0 12px 30px rgba(22,38,63,.08)}
+.summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.metric{padding:14px;border:1px solid var(--line);border-radius:12px;background:#f8fbff}.metric b{display:block;font-size:1.7rem;margin-top:6px}
+.table-wrap{overflow:auto} table{width:100%;border-collapse:collapse} th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px} th{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+tr{cursor:pointer} tr.selected{background:#eef3ff}.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:bold}.pill.active{background:#e7f8ee;color:var(--ok)}.pill.idle{background:#fff3e3;color:var(--warn)}.pill.offline{background:#fdeaea;color:var(--bad)}
+.side h2,.side h3{margin:0 0 10px}.side section{margin-bottom:18px}.small{color:var(--muted);font-size:13px}.list{display:grid;gap:8px}.item{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fbfdff}.error-chip{display:inline-block;padding:5px 8px;border-radius:999px;background:#edf2ff;margin:4px 6px 0 0;font-size:12px}
+.recent-errors{max-height:320px;overflow:auto}.empty{color:var(--muted);font-style:italic} .topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px}.topbar h1{margin:0}
+@media (max-width:1080px){.layout{grid-template-columns:1fr}.summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+</head>
+<body>
+<div class="layout">
+  <div class="stack">
+    <div class="card">
+      <div class="topbar">
+        <div>
+          <h1>🖥️ Monitor en tiempo real</h1>
+          <div class="small">Vista global basada en <code>players</code> y <code>snapshots/latest</code>.</div>
+        </div>
+        <a href="index.html">Ir al juego</a>
+      </div>
+      <div class="summary-grid" id="summaryGrid"></div>
+    </div>
+
+    <div class="card">
+      <h2>Jugadores</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Jugador</th><th>Estado</th><th>Categoría</th><th>Intentos hoy</th><th>Aciertos</th><th>Errores</th><th>Precisión</th><th>Última actividad</th></tr>
+          </thead>
+          <tbody id="playersTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <aside class="card side">
+    <h2>Detalle del jugador</h2>
+    <div id="playerDetail" class="empty">Selecciona un jugador para ver sesiones, logros y errores recientes.</div>
+  </aside>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+import { getFirestore, collection, doc, query, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBLqVCqW2s7piZQUH0dHODjK4JXAv74TdA",
+  authDomain: "asl-apk.firebaseapp.com",
+  projectId: "asl-apk",
+  storageBucket: "asl-apk.firebasestorage.app",
+  messagingSenderId: "803053462437",
+  appId: "1:803053462437:web:84bf25223991a379c77e4c"
+};
+
+const ACTIVE_WINDOW_MS = 90 * 1000;
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const state = { players:new Map(), selectedPlayerId:null, detailUnsubs:[], playerSnapshotUnsubs:new Map(), detailModel:null };
+const els = {
+  summaryGrid: document.getElementById('summaryGrid'),
+  playersTableBody: document.getElementById('playersTableBody'),
+  playerDetail: document.getElementById('playerDetail')
+};
+
+function tsToDate(value){
+  if(!value) return null;
+  if(typeof value.toDate === 'function') return value.toDate();
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+function fmtDate(value){ const d = tsToDate(value); return d ? d.toLocaleString('es-MX') : '—'; }
+function escapeHtml(v){ return String(v ?? '').replace(/[&<>"']/g, (m)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+function isActive(snapshot){ const d = tsToDate(snapshot?.lastActivityAt) || tsToDate(snapshot?.lastClientDate); return !!(d && (Date.now() - d.getTime()) <= ACTIVE_WINDOW_MS); }
+function getStatus(snapshot){ if(isActive(snapshot)) return {label:'Activo',cls:'active'}; if(snapshot?.lastActivityAt || snapshot?.lastClientDate) return {label:'Inactivo',cls:'idle'}; return {label:'Sin señal',cls:'offline'}; }
+function minutesAgo(snapshot){ const d = tsToDate(snapshot?.lastActivityAt) || tsToDate(snapshot?.lastClientDate); if(!d) return '—'; const secs = Math.max(0, Math.round((Date.now()-d.getTime())/1000)); return secs < 60 ? `${secs}s` : `${Math.floor(secs/60)}m`; }
+
+function computeSummary(){
+  const rows = [...state.players.values()];
+  const active = rows.filter((r)=>isActive(r.snapshot)).length;
+  const attempts = rows.reduce((sum,r)=>sum + Number(r.snapshot?.attemptsToday || 0), 0);
+  const correct = rows.reduce((sum,r)=>sum + Number(r.snapshot?.correctToday || 0), 0);
+  const wrong = rows.reduce((sum,r)=>sum + Number(r.snapshot?.wrongToday || 0), 0);
+  const acc = attempts ? Math.round((correct / attempts) * 100) : 0;
+  const metrics = [
+    ['Jugadores monitoreados', rows.length],
+    ['Activos ahora', active],
+    ['Intentos hoy', attempts],
+    ['Precisión global', `${acc}% · ${correct}/${attempts || 0}`]
+  ];
+  els.summaryGrid.innerHTML = metrics.map(([label,value])=>`<div class="metric"><span class="small">${label}</span><b>${value}</b><span class="small">Errores hoy: ${wrong}</span></div>`).join('');
+}
+
+function renderTable(){
+  const rows = [...state.players.values()].sort((a,b)=>{
+    const activeDiff = Number(isActive(b.snapshot)) - Number(isActive(a.snapshot));
+    if(activeDiff) return activeDiff;
+    return String(a.player.displayName || a.player.id).localeCompare(String(b.player.displayName || b.player.id), 'es');
+  });
+  if(!rows.length){ els.playersTableBody.innerHTML = '<tr><td colspan="8" class="empty">Sin jugadores.</td></tr>'; return; }
+  els.playersTableBody.innerHTML = rows.map(({player,snapshot})=>{
+    const status = getStatus(snapshot);
+    const name = player.displayName || player.id;
+    return `<tr data-player-id="${player.id}" class="${state.selectedPlayerId===player.id?'selected':''}">
+      <td><strong>${escapeHtml(name)}</strong><div class="small">${escapeHtml(player.id)}</div></td>
+      <td><span class="pill ${status.cls}">${status.label}</span></td>
+      <td>${escapeHtml(snapshot?.currentCategory || '—')}</td>
+      <td>${Number(snapshot?.attemptsToday || 0)}</td>
+      <td>${Number(snapshot?.correctToday || 0)}</td>
+      <td>${Number(snapshot?.wrongToday || 0)}</td>
+      <td>${Number(snapshot?.recentAccuracy || 0)}%</td>
+      <td>${minutesAgo(snapshot)}</td>
+    </tr>`;
+  }).join('');
+  [...els.playersTableBody.querySelectorAll('tr[data-player-id]')].forEach((row)=>row.addEventListener('click',()=>selectPlayer(row.dataset.playerId)));
+}
+
+function renderAll(){ computeSummary(); renderTable(); }
+
+function selectPlayer(playerId){
+  state.selectedPlayerId = playerId; renderTable(); subscribePlayerDetail(playerId);
+}
+
+function clearDetailSubs(){ state.detailUnsubs.forEach((fn)=>fn && fn()); state.detailUnsubs = []; }
+
+function renderPlayerDetail(model){
+  if(!model.player){ els.playerDetail.innerHTML = '<div class="empty">Selecciona un jugador para ver el detalle.</div>'; return; }
+  model.snapshot = state.players.get(model.player.id)?.snapshot || model.snapshot || {};
+  const snapshot = model.snapshot || {};
+  const summary = model.summary || {};
+  const sessions = model.sessions || [];
+  const achievements = model.achievements || [];
+  const errors = model.errors || [];
+  const grouped = Object.entries((model.errorGroups || {})).sort((a,b)=>b[1]-a[1]);
+  const latestSession = sessions[0];
+  els.playerDetail.innerHTML = `
+    <section>
+      <div><strong>${escapeHtml(model.player.displayName || model.player.id)}</strong></div>
+      <div class="small">Última actividad: ${fmtDate(snapshot.lastActivityAt || snapshot.lastClientDate)}</div>
+    </section>
+    <section class="list">
+      <div class="item">Sesión actual: <strong>${escapeHtml(snapshot.sessionId || latestSession?.id || '—')}</strong></div>
+      <div class="item">Categoría actual: <strong>${escapeHtml(snapshot.currentCategory || '—')}</strong></div>
+      <div class="item">Puntaje/rango: <strong>${Number(summary.rankPoints || snapshot.points || 0)}</strong></div>
+      <div class="item">Racha actual: <strong>${Number(snapshot.currentStreak || summary.currentStreak || 0)}</strong></div>
+      <div class="item">Promedio reciente: <strong>${Number(snapshot.avgResponseTimeMsRecent || 0)} ms</strong></div>
+    </section>
+    <section>
+      <h3>Sesiones recientes</h3>
+      <div class="list">${sessions.length ? sessions.map((s)=>`<div class="item"><strong>${escapeHtml(s.mode || 'general')}</strong><br><span class="small">${fmtDate(s.clientDate)} · intentos ${Number(s.totalAttempts || 0)} · aciertos ${Number(s.correct || 0)}</span></div>`).join('') : '<div class="empty">Sin sesiones.</div>'}</div>
+    </section>
+    <section>
+      <h3>Logros recientes</h3>
+      <div>${achievements.length ? achievements.map((a)=>`<span class="error-chip">${escapeHtml(a.medal || '🏅')} ${escapeHtml(a.title || 'Logro')}</span>`).join('') : '<span class="empty">Sin logros.</span>'}</div>
+    </section>
+    <section>
+      <h3>Errores recientes</h3>
+      <div>${grouped.length ? grouped.map(([k,v])=>`<span class="error-chip">${escapeHtml(k)}: ${v}</span>`).join('') : '<span class="empty">Sin errores recientes.</span>'}</div>
+      <div class="recent-errors list" style="margin-top:10px;">${errors.length ? errors.map((item)=>`<div class="item"><strong>${escapeHtml(item.question || item.operacion || 'Operación')}</strong><br><span class="small">Esperada: ${escapeHtml(item.expectedAnswer ?? item.respuestaEsperada ?? '—')} · Niño: ${escapeHtml(item.userAnswer ?? item.respuestaUsuario ?? '—')}</span><br><span class="small">${escapeHtml(item.category || item.categoria || snapshot.currentCategory || 'General')} · ${Number(item.totalTimeMs || item.tiempoTotalMs || 0)} ms · ${fmtDate(item.clientDate || item.timestamp)}</span></div>`).join('') : '<div class="empty">Sin registros de error.</div>'}</div>
+    </section>`;
+}
+
+function subscribePlayerDetail(playerId){
+  clearDetailSubs();
+  const player = state.players.get(playerId)?.player;
+  const model = { player, snapshot: state.players.get(playerId)?.snapshot, summary:null, sessions:[], achievements:[], errors:[], errorGroups:{} };
+  state.detailModel = model;
+  renderPlayerDetail(model);
+
+  state.detailUnsubs.push(onSnapshot(doc(db,'players',playerId,'stats','summary'), (snap)=>{ model.summary = snap.exists()? snap.data():{}; renderPlayerDetail(model); }));
+  state.detailUnsubs.push(onSnapshot(query(collection(db,'players',playerId,'sessions'), orderBy('clientDate','desc'), limit(8)), (snap)=>{
+    model.sessions = snap.docs.map((d)=>({id:d.id,...d.data()}));
+    renderPlayerDetail(model);
+    const sessionId = model.snapshot?.sessionId || model.sessions[0]?.id;
+    subscribeAttempts(playerId, sessionId, model);
+  }));
+  state.detailUnsubs.push(onSnapshot(query(collection(db,'players',playerId,'achievements'), orderBy('clientDate','desc'), limit(12)), (snap)=>{ model.achievements = snap.docs.map((d)=>d.data()); renderPlayerDetail(model); }));
+}
+
+function subscribeAttempts(playerId, sessionId, model){
+  if(model.attemptUnsub){ model.attemptUnsub(); }
+  if(!sessionId){ model.errors=[]; model.errorGroups={}; renderPlayerDetail(model); return; }
+  model.attemptUnsub = onSnapshot(query(collection(db,'players',playerId,'sessions',sessionId,'attempts'), orderBy('clientDate','desc'), limit(40)), (snap)=>{
+    const attempts = snap.docs.map((d)=>d.data());
+    model.errors = attempts.filter((a)=>a.isCorrect===false).slice(0,12).map((a)=>({ ...a, category: a.operationType || a.mode || 'General' }));
+    model.errorGroups = model.errors.reduce((acc,item)=>{
+      const key = item.operationType === 'sub' ? 'Restas' : item.operationType === 'mul' ? 'Multiplicaciones' : item.operationType === 'add' ? 'Sumas' : (item.category || 'General');
+      acc[key] = (acc[key] || 0) + 1; return acc;
+    }, {});
+    renderPlayerDetail(model);
+  });
+  state.detailUnsubs.push(()=>model.attemptUnsub && model.attemptUnsub());
+}
+
+onSnapshot(collection(db,'players'), (snap)=>{
+  snap.docs.forEach((d)=>{
+    const current = state.players.get(d.id) || {};
+    state.players.set(d.id, { ...current, player:{ id:d.id, ...d.data() } });
+  });
+  renderAll();
+  if(!state.selectedPlayerId && snap.docs[0]) selectPlayer(snap.docs[0].id);
+});
+
+onSnapshot(collection(db,'players'), (snap)=>{
+  const currentIds = new Set(snap.docs.map((d)=>d.id));
+  snap.docs.forEach((d)=>{
+    const playerId = d.id;
+    if(state.playerSnapshotUnsubs.has(playerId)) return;
+    const unsub = onSnapshot(doc(db,'players',playerId,'snapshots','latest'), (docSnap)=>{
+      const current = state.players.get(playerId) || { player:{ id:playerId } };
+      state.players.set(playerId, { ...current, snapshot: docSnap.exists()? docSnap.data():{} });
+      if(state.selectedPlayerId === playerId && state.detailModel){
+        state.detailModel.snapshot = docSnap.exists() ? docSnap.data() : {};
+        renderPlayerDetail(state.detailModel);
+      }
+      renderAll();
+    });
+    state.playerSnapshotUnsubs.set(playerId, unsub);
+  });
+
+  [...state.playerSnapshotUnsubs.keys()].forEach((playerId)=>{
+    if(currentIds.has(playerId)) return;
+    const unsub = state.playerSnapshotUnsubs.get(playerId);
+    if(unsub) unsub();
+    state.playerSnapshotUnsubs.delete(playerId);
+    state.players.delete(playerId);
+  });
+});
+
+setInterval(renderAll, 15000);
+</script>
+</body>
+</html>

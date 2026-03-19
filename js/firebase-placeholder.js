@@ -169,44 +169,90 @@ function getActivePlayer() {
   return activePlayerId;
 }
 
+async function updatePlayerPresence({
+  playerId,
+  sessionId = null,
+  currentCategory = null,
+  isActive = true,
+  lastClientDate = new Date().toISOString(),
+  extra = {}
+} = {}) {
+  const targetPlayer = playerId || getActivePlayer();
+  if (!targetPlayer) return;
+
+  await setDoc(doc(db, 'players', targetPlayer, 'snapshots', 'latest'), {
+    playerId: targetPlayer,
+    sessionId,
+    isActive,
+    currentCategory,
+    lastActivityAt: serverTimestamp(),
+    lastClientDate,
+    updatedAt: serverTimestamp(),
+    ...extra
+  }, { merge: true });
+}
+
 async function logLogin({ playerId }) {
   const targetPlayer = playerId || getActivePlayer();
+  const clientDate = new Date().toISOString();
   await addDoc(collection(db, 'players', targetPlayer, 'logins'), {
     timestamp: serverTimestamp(),
-    clientDate: new Date().toISOString(),
+    clientDate,
     userAgent: navigator.userAgent,
     platform: navigator.platform || 'unknown',
     language: navigator.language || 'es-MX'
+  });
+
+  await updatePlayerPresence({
+    playerId: targetPlayer,
+    lastClientDate: clientDate,
+    extra: { loginAt: serverTimestamp() }
   });
 }
 
 async function save(path, data) {
   const playerId = getActivePlayer();
   const nowIso = new Date().toISOString();
-  const sessionId = makeSessionId();
+  const sessionId = data.sessionId || makeSessionId();
 
   await setDoc(doc(db, 'players', playerId, 'sessions', sessionId), {
     startedAt: serverTimestamp(),
     endedAt: serverTimestamp(),
-    mode: 'general',
+    mode: data.currentCategory || 'general',
     deviceId: navigator.userAgent.slice(0, 60),
-    totalAttempts: 0,
-    correct: 0,
-    wrong: 0,
-    durationMs: 0,
+    totalAttempts: Number(data.totalAttempts || 0),
+    correct: Number(data.totalCorrect || 0),
+    wrong: Number(data.totalWrong || 0),
+    durationMs: Number(data.totalTimeMs || 0),
+    points: Number(data.points || 0),
+    rankPoints: Number(data.points || 0),
     sourcePath: path,
     clientDate: nowIso
   }, { merge: true });
 
   await setDoc(doc(db, 'players', playerId, 'stats', 'summary'), {
+    totalAttempts: Number(data.totalAttempts || 0),
+    totalCorrect: Number(data.totalCorrect || 0),
+    totalWrong: Number(data.totalWrong || 0),
+    totalTimeMs: Number(data.totalTimeMs || 0),
     rankPoints: Number(data.points || 0),
+    currentStreak: Number(data.currentStreak || 0),
     lastPlayedAt: serverTimestamp()
   }, { merge: true });
 
-  await setDoc(doc(db, 'players', playerId, 'snapshots', 'latest'), {
-    ...data,
-    updatedAt: serverTimestamp()
-  }, { merge: true });
+  await updatePlayerPresence({
+    playerId,
+    sessionId,
+    currentCategory: data.currentCategory || 'general',
+    isActive: Boolean(data.isActive ?? true),
+    lastClientDate: nowIso,
+    extra: {
+      ...data,
+      playerId,
+      sessionId,
+      sourcePath: path
+    }
+  });
 
   return true;
 }
@@ -292,6 +338,8 @@ async function saveAttempt(payload) {
     totalWrong: payload.wrong || 0,
     totalTimeMs: payload.durationMs || 0,
     rankPoints: payload.points || 0,
+    currentStreak: payload.currentStreak || 0,
+    bestStreak: Math.max(Number(payload.bestStreak || 0), Number(payload.currentStreak || 0)),
     lastPlayedAt: serverTimestamp()
   }, { merge: true });
 
@@ -329,6 +377,43 @@ async function saveAttempt(payload) {
     resumenHora,
     { merge: true }
   );
+  const recentAttempts = Number(payload.recentAttempts || Math.min(payload.totalAttempts || 0, 10));
+  const recentCorrect = Number(payload.recentCorrect || 0);
+  const recentTimeMs = Number(payload.recentTimeMs || 0);
+  const attemptsToday = Number(payload.totalAttempts || 0);
+  const correctToday = Number(payload.correct || 0);
+  const wrongToday = Number(payload.wrong || 0);
+  const recentAccuracy = recentAttempts > 0 ? Math.round((recentCorrect / recentAttempts) * 100) : 0;
+  const avgResponseTimeMsRecent = recentAttempts > 0 ? Math.round(recentTimeMs / recentAttempts) : 0;
+
+  await updatePlayerPresence({
+    playerId,
+    sessionId,
+    currentCategory: categoryEs,
+    isActive: true,
+    lastClientDate: clientDate,
+    extra: {
+      attemptsToday,
+      correctToday,
+      wrongToday,
+      currentStreak: Number(payload.currentStreak || 0),
+      recentAccuracy,
+      avgResponseTimeMsRecent,
+      lastQuestion: payload.question || '',
+      lastAnswerCorrect: Boolean(payload.isCorrect),
+      lastExpectedAnswer: payload.expectedAnswer ?? null,
+      lastPlayerAnswer: payload.userAnswer ?? null,
+      totalAttempts: Number(payload.totalAttempts || 0),
+      totalCorrect: Number(payload.correct || 0),
+      totalWrong: Number(payload.wrong || 0),
+      totalTimeMs: Number(payload.durationMs || 0),
+      points: Number(payload.points || 0),
+      playerId,
+      sessionId,
+      currentCategoryLabel: categoryEs
+    }
+  });
+
 
   return { playerId, sessionId, attemptId };
 }
@@ -353,14 +438,25 @@ async function getPlayerInsights(playerId) {
       const hourSnap = await getDocs(collection(db, 'players', target, 'stats', 'summary', 'by_day', dayDoc.id, 'categorias', catDoc.id, 'by_start_hour'));
       hourSnap.forEach((hourDoc) => {
         const r = (hourDoc.data() || {}).resumen || {};
-        byCategory[mode].attempts = Math.max(Number(byCategory[mode].attempts || 0), Number(r.intentos || 0));
-        byCategory[mode].correct = Math.max(Number(byCategory[mode].correct || 0), Number(r.correctas || 0));
-        byCategory[mode].wrong = Math.max(Number(byCategory[mode].wrong || 0), Number(r.erroneas || 0));
-        byCategory[mode].highScore = Math.max(Number(byCategory[mode].highScore || 0), Number(r.scoreAlto || 0));
-        byCategory[mode].avgResponseScore = Math.max(Number(byCategory[mode].avgResponseScore || 0), Number(r.scorePromedio || 0));
+        const attempts = Number(r.intentos || 0);
+        const correct = Number(r.correctas || 0);
+        const wrong = Number(r.erroneas || 0);
+        const highScore = Number(r.scoreAlto || 0);
+        const avgResponseScore = Number(r.scorePromedio || 0);
+        byCategory[mode].attempts = Number(byCategory[mode].attempts || 0) + attempts;
+        byCategory[mode].correct = Number(byCategory[mode].correct || 0) + correct;
+        byCategory[mode].wrong = Number(byCategory[mode].wrong || 0) + wrong;
+        byCategory[mode].highScore = Math.max(Number(byCategory[mode].highScore || 0), highScore);
+        byCategory[mode].weightedResponseScoreSum = Number(byCategory[mode].weightedResponseScoreSum || 0) + (avgResponseScore * attempts);
       });
     }
   }
+
+  Object.values(byCategory).forEach((item) => {
+    const attempts = Number(item.attempts || 0);
+    item.avgResponseScore = attempts > 0 ? Math.round(Number(item.weightedResponseScoreSum || 0) / attempts) : 0;
+    delete item.weightedResponseScoreSum;
+  });
 
   const sessionsSnap = await getDocs(query(collection(db, 'players', target, 'sessions'), orderBy('clientDate', 'desc'), limit(60)));
   let weekPoints = 0;
@@ -407,7 +503,8 @@ window.FirebasePlaceholder = {
   listPlayers,
   setActivePlayer,
   getActivePlayer,
-  logLogin
+  logLogin,
+  updatePlayerPresence
 };
 
 window.dispatchEvent(new CustomEvent('firebase-ready'));
