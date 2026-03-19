@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Panel individual de monitoreo</title>
+<link rel="icon" type="image/x-icon" href="favicon_Math.ico">
+<style>
+:root{--bg:#f4f7fb;--card:#fff;--line:#dbe4f1;--ink:#17304f;--muted:#6b7b91;--ok:#1f9d57;--okbg:#e9f8ef;--bad:#c0392b;--badbg:#fdeceb;--warn:#d97706;--warnbg:#fff5e8;--accent:#3157d5;--accent-soft:#eef2ff}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--ink)}a{color:var(--accent)}
+.layout{display:grid;grid-template-columns:340px minmax(0,1fr);gap:18px;max-width:1560px;margin:0 auto;padding:18px}.card{background:var(--card);border-radius:18px;box-shadow:0 12px 30px rgba(24,42,71,.08);padding:16px}.stack{display:grid;gap:16px}.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.topbar h1,.topbar h2,.topbar h3{margin:0}.small{font-size:12px;color:var(--muted)}
+.player-list{display:grid;gap:10px}.player-btn{border:1px solid var(--line);border-radius:14px;background:#fff;padding:12px;text-align:left;cursor:pointer}.player-btn.active{border-color:var(--accent);background:var(--accent-soft)}.player-btn:hover{border-color:var(--accent)}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700}.badge.ok{background:var(--okbg);color:var(--ok)}.badge.bad{background:var(--badbg);color:var(--bad)}.badge.warn{background:var(--warnbg);color:var(--warn)}
+.hero{display:grid;grid-template-columns:1.4fr 1fr;gap:16px}.metrics-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.metric{border:1px solid var(--line);border-radius:14px;padding:12px;background:#fbfdff}.metric strong{display:block;font-size:1.45rem;margin-top:6px}
+.operation-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.op-card{border:1px solid var(--line);border-radius:14px;padding:12px;background:#fbfdff;cursor:pointer}.op-card.active{border-color:var(--accent);background:var(--accent-soft)}.op-card .label{font-weight:700}.op-card .sub{font-size:12px;color:var(--muted);margin-top:6px}
+.list{display:grid;gap:10px}.item{border:1px solid var(--line);border-radius:14px;padding:12px;background:#fbfdff}.item.success{background:var(--okbg);border-color:#b7e2c6}.item.error{background:var(--badbg);border-color:#f0b8b2}.item.slow{box-shadow:inset 0 0 0 2px #ffd08a}
+.grid-attempts{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}.kpis{display:grid;gap:8px}.kpi-row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line)}.kpi-row:last-child{border-bottom:none}
+.section-title{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.chips{display:flex;flex-wrap:wrap;gap:8px}.chip{padding:5px 9px;border-radius:999px;background:var(--accent-soft);font-size:12px}.empty{color:var(--muted);font-style:italic}
+.table{width:100%;border-collapse:collapse}.table th,.table td{padding:10px;border-bottom:1px solid var(--line);font-size:13px;text-align:left}.table th{color:var(--muted);font-size:12px;text-transform:uppercase}
+@media (max-width:1200px){.layout{grid-template-columns:1fr}.hero,.metrics-grid,.operation-cards{grid-template-columns:1fr 1fr}} @media (max-width:720px){.metrics-grid,.operation-cards,.hero{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="stack">
+    <div class="card">
+      <div class="topbar">
+        <div>
+          <h1>🧭 Panel individual</h1>
+          <div class="small">Selecciona un jugador para revisar su actividad, errores y resultados.</div>
+        </div>
+        <a href="index.html">Ir al juego</a>
+      </div>
+      <div id="playerList" class="player-list"></div>
+    </div>
+  </aside>
+
+  <main class="stack">
+    <div id="playerDashboard" class="card empty">Selecciona un jugador del panel izquierdo.</div>
+  </main>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+import { getFirestore, collection, doc, query, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBLqVCqW2s7piZQUH0dHODjK4JXAv74TdA",
+  authDomain: "asl-apk.firebaseapp.com",
+  projectId: "asl-apk",
+  storageBucket: "asl-apk.firebasestorage.app",
+  messagingSenderId: "803053462437",
+  appId: "1:803053462437:web:84bf25223991a379c77e4c"
+};
+
+const ACTIVE_WINDOW_MS = 90 * 1000;
+const SLOW_RESPONSE_MS = 15000;
+const CATEGORY_LABELS = { add:'Sumas', sub:'Restas', mul:'Multiplicaciones', challenge:'Desafío', general:'General' };
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const state = { players:new Map(), selectedPlayerId:null, playerSnapshotUnsubs:new Map(), detailUnsubs:[], detailModel:null };
+const els = { playerList:document.getElementById('playerList'), playerDashboard:document.getElementById('playerDashboard') };
+
+function tsToDate(value){ if(!value) return null; if(typeof value.toDate === 'function') return value.toDate(); const d = new Date(value); return Number.isNaN(d.getTime()) ? null : d; }
+function fmtDate(value){ const d = tsToDate(value); return d ? d.toLocaleString('es-MX') : '—'; }
+function escapeHtml(v){ return String(v ?? '').replace(/[&<>"']/g, (m)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+function humanCategory(v){ return CATEGORY_LABELS[v] || CATEGORY_LABELS[String(v || '').toLowerCase()] || v || '—'; }
+function isActive(snapshot){ const d = tsToDate(snapshot?.lastActivityAt) || tsToDate(snapshot?.lastClientDate); return !!(d && (Date.now() - d.getTime()) <= ACTIVE_WINDOW_MS); }
+function statusMeta(snapshot){ if(isActive(snapshot)) return ['Activo','ok']; if(snapshot?.lastActivityAt || snapshot?.lastClientDate) return ['Inactivo','warn']; return ['Sin señal','bad']; }
+function minutesAgo(snapshot){ const d = tsToDate(snapshot?.lastActivityAt) || tsToDate(snapshot?.lastClientDate); if(!d) return '—'; const secs = Math.max(0, Math.round((Date.now()-d.getTime())/1000)); return secs < 60 ? `${secs}s` : `${Math.floor(secs/60)}m`; }
+function accuracy(correct, attempts){ return attempts ? Math.round((correct / attempts) * 100) : 0; }
+function isSlow(attempt){ return Number(attempt.totalTimeMs || attempt.tiempoTotalMs || 0) >= SLOW_RESPONSE_MS; }
+
+function renderPlayerList(){
+  const rows = [...state.players.values()].sort((a,b)=> String(a.player.displayName || a.player.id).localeCompare(String(b.player.displayName || b.player.id), 'es'));
+  els.playerList.innerHTML = rows.length ? rows.map(({player,snapshot})=>{
+    const [status,statusClass] = statusMeta(snapshot);
+    return `<button class="player-btn ${state.selectedPlayerId===player.id?'active':''}" data-player-id="${player.id}">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:start;">
+        <div><strong>${escapeHtml(player.displayName || player.id)}</strong><div class="small">${escapeHtml(player.id)}</div></div>
+        <span class="badge ${statusClass}">${status}</span>
+      </div>
+      <div class="small" style="margin-top:8px;">Categoría: ${escapeHtml(humanCategory(snapshot?.currentCategory))}</div>
+      <div class="small">Última actividad: ${minutesAgo(snapshot)}</div>
+      <div class="small">Intentos: ${Number(snapshot?.attemptsToday || 0)} · Precisión: ${Number(snapshot?.recentAccuracy || 0)}%</div>
+    </button>`;
+  }).join('') : '<div class="empty">Sin jugadores.</div>';
+  [...els.playerList.querySelectorAll('[data-player-id]')].forEach((btn)=> btn.addEventListener('click', ()=> selectPlayer(btn.dataset.playerId)));
+}
+
+function buildCategoryStats(attempts){
+  const stats = { add:{attempts:0,correct:0,wrong:0,slow:0}, sub:{attempts:0,correct:0,wrong:0,slow:0}, mul:{attempts:0,correct:0,wrong:0,slow:0}, challenge:{attempts:0,correct:0,wrong:0,slow:0} };
+  attempts.forEach((attempt)=>{
+    const bucket = attempt.mode === 'challenge' ? 'challenge' : (attempt.operationType || attempt.mode || 'general');
+    if(!stats[bucket]) stats[bucket] = {attempts:0,correct:0,wrong:0,slow:0};
+    stats[bucket].attempts += 1;
+    if(attempt.isCorrect) stats[bucket].correct += 1; else stats[bucket].wrong += 1;
+    if(isSlow(attempt)) stats[bucket].slow += 1;
+  });
+  return stats;
+}
+
+function renderPlayerDashboard(model){
+  if(!model?.player){ els.playerDashboard.innerHTML = 'Selecciona un jugador del panel izquierdo.'; return; }
+  model.snapshot = state.players.get(model.player.id)?.snapshot || model.snapshot || {};
+  const snapshot = model.snapshot || {};
+  const summary = model.summary || {};
+  const attempts = (model.attempts || []).slice().sort((a,b)=> new Date(b.clientDate || 0) - new Date(a.clientDate || 0));
+  const achievements = model.achievements || [];
+  const sessions = (model.sessions || []).filter((s)=> Number(s.totalAttempts || 0) > 0);
+  const [status,statusClass] = statusMeta(snapshot);
+  const categoryStats = buildCategoryStats(attempts);
+  const opFilter = model.operationFilter || 'challenge';
+  const visibleAttempts = attempts.filter((attempt)=>{
+    const bucket = attempt.mode === 'challenge' ? 'challenge' : (attempt.operationType || attempt.mode || 'general');
+    return bucket === opFilter;
+  });
+  const errorGroups = visibleAttempts.filter((a)=>!a.isCorrect).reduce((acc, attempt)=>{
+    const key = humanCategory(attempt.mode === 'challenge' ? 'challenge' : (attempt.operationType || attempt.mode));
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+
+  els.playerDashboard.innerHTML = `
+    <div class="hero">
+      <div class="card" style="padding:0;border:none;box-shadow:none;">
+        <div class="section-title">
+          <div>
+            <h2>${escapeHtml(model.player.displayName || model.player.id)}</h2>
+            <div class="small">Jugador: ${escapeHtml(model.player.id)} · Última actividad: ${fmtDate(snapshot.lastActivityAt || snapshot.lastClientDate)}</div>
+          </div>
+          <span class="badge ${statusClass}">${status}</span>
+        </div>
+        <div class="metrics-grid">
+          <div class="metric"><span class="small">Intentos hoy</span><strong>${Number(snapshot.attemptsToday || summary.totalAttempts || 0)}</strong></div>
+          <div class="metric"><span class="small">Aciertos hoy</span><strong>${Number(snapshot.correctToday || summary.totalCorrect || 0)}</strong></div>
+          <div class="metric"><span class="small">Errores hoy</span><strong>${Number(snapshot.wrongToday || summary.totalWrong || 0)}</strong></div>
+          <div class="metric"><span class="small">Racha actual</span><strong>${Number(snapshot.currentStreak || summary.currentStreak || 0)}</strong></div>
+          <div class="metric"><span class="small">Tiempo reciente</span><strong>${Number(snapshot.avgResponseTimeMsRecent || 0)} ms</strong></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-title"><h3>Datos clave</h3></div>
+        <div class="kpis">
+          <div class="kpi-row"><span>Puntaje/rank</span><strong>${Number(summary.rankPoints || snapshot.points || 0)}</strong></div>
+          <div class="kpi-row"><span>Precisión reciente</span><strong>${Number(snapshot.recentAccuracy || 0)}%</strong></div>
+          <div class="kpi-row"><span>Sesión actual</span><strong>${escapeHtml(snapshot.sessionId || '—')}</strong></div>
+          <div class="kpi-row"><span>Categoría actual</span><strong>${escapeHtml(humanCategory(snapshot.currentCategory))}</strong></div>
+          <div class="kpi-row"><span>Última pregunta</span><strong>${escapeHtml(snapshot.lastQuestion || '—')}</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title"><h3>Resumen por operación</h3><span class="small">Haz clic para ver los problemas de cada apartado.</span></div>
+      <div class="operation-cards" id="operationCards">${['add','sub','mul','challenge'].map((key)=>{
+        const data = categoryStats[key] || {attempts:0,correct:0,wrong:0,slow:0};
+        return `<button class="op-card ${opFilter===key?'active':''}" data-operation="${key}">
+          <div class="label">${humanCategory(key)}</div>
+          <div class="sub">${data.correct}/${data.attempts} correctos · ${accuracy(data.correct, data.attempts)}%</div>
+          <div class="sub">Errores: ${data.wrong} · Lentos: ${data.slow}</div>
+        </button>`;
+      }).join('')}</div>
+    </div>
+
+    <div class="card">
+      <div class="section-title"><h3>Problemas y resultados de ${humanCategory(opFilter)}</h3><span class="small">Marca amarilla = tardó mucho en responder.</span></div>
+      <div class="chips">${Object.entries(errorGroups).length ? Object.entries(errorGroups).map(([key,value])=>`<span class="chip">${escapeHtml(key)}: ${value} errores</span>`).join('') : '<span class="empty">Sin errores en este apartado.</span>'}</div>
+      <div class="grid-attempts" style="margin-top:12px;">${visibleAttempts.length ? visibleAttempts.map((attempt)=>{
+        const correct = Boolean(attempt.isCorrect);
+        const slow = isSlow(attempt);
+        const classes = ['item', correct ? 'success' : 'error', slow ? 'slow' : ''].join(' ');
+        return `<div class="${classes}">
+          <strong>${escapeHtml(attempt.question || 'Operación')}</strong>
+          <div class="small">Resultado esperado: ${escapeHtml(attempt.expectedAnswer ?? '—')} · Respuesta: ${escapeHtml(attempt.userAnswer ?? '—')}</div>
+          <div class="small">${correct ? '✅ Correcto' : '❌ Erróneo'}${slow ? ' · ⏱ Lento' : ''}</div>
+          <div class="small">Tiempo total: ${Number(attempt.totalTimeMs || 0)} ms</div>
+          <div class="small">Primer input: ${Number(attempt.thinkTimeMs || 0)} ms · Escritura: ${Number(attempt.writeTimeMs || 0)} ms</div>
+          <div class="small">Categoría: ${escapeHtml(humanCategory(attempt.mode))} · Tipo: ${escapeHtml(humanCategory(attempt.operationType))}</div>
+          <div class="small">Fecha: ${fmtDate(attempt.clientDate || attempt.timestamp)}</div>
+        </div>`;
+      }).join('') : '<div class="empty">Sin problemas registrados en este apartado.</div>'}</div>
+    </div>
+
+    <div class="hero">
+      <div class="card">
+        <div class="section-title"><h3>Sesiones</h3><span class="small">Solo se muestran sesiones con intentos reales.</span></div>
+        <div class="list">${sessions.length ? sessions.map((session)=>`<div class="item"><strong>${escapeHtml(humanCategory(session.mode))}</strong><div class="small">${fmtDate(session.clientDate)} · intentos ${Number(session.totalAttempts || 0)} · aciertos ${Number(session.correct || 0)} · errores ${Number(session.wrong || 0)}</div></div>`).join('') : '<div class="empty">Sin sesiones jugadas.</div>'}</div>
+      </div>
+      <div class="card">
+        <div class="section-title"><h3>Misiones y logros guardados</h3></div>
+        <div class="list">${achievements.length ? achievements.map((achievement)=>`<div class="item"><strong>${escapeHtml(achievement.medal || '🏅')} ${escapeHtml(achievement.title || 'Logro')}</strong><div class="small">Tipo: ${escapeHtml(achievement.type || 'mission')} · Categoría: ${escapeHtml(humanCategory(achievement.category))}</div><div class="small">Fecha: ${fmtDate(achievement.clientDate || achievement.timestamp)}</div></div>`).join('') : '<div class="empty">Sin logros guardados.</div>'}</div>
+      </div>
+    </div>`;
+
+  [...els.playerDashboard.querySelectorAll('[data-operation]')].forEach((btn)=> btn.addEventListener('click', ()=>{
+    model.operationFilter = btn.dataset.operation;
+    renderPlayerDashboard(model);
+  }));
+}
+
+function clearDetailSubs(){ state.detailUnsubs.forEach((fn)=>fn && fn()); state.detailUnsubs = []; }
+
+function selectPlayer(playerId){ state.selectedPlayerId = playerId; renderPlayerList(); subscribePlayerDetail(playerId); }
+
+function subscribePlayerDetail(playerId){
+  clearDetailSubs();
+  const player = state.players.get(playerId)?.player;
+  const model = { player, snapshot: state.players.get(playerId)?.snapshot, summary:{}, sessions:[], achievements:[], attempts:[], operationFilter:'challenge', attemptsUnsubs:[] };
+  state.detailModel = model;
+  renderPlayerDashboard(model);
+
+  const refreshAttemptSubs = () => {
+    (model.attemptsUnsubs || []).forEach((fn)=>fn && fn());
+    model.attemptsUnsubs = [];
+    const sessionList = (model.sessions || []).filter((s)=> Number(s.totalAttempts || 0) > 0).slice(0,5);
+    if(!sessionList.length){ model.attempts = []; renderPlayerDashboard(model); return; }
+    const bucket = new Map();
+    sessionList.forEach((session)=>{
+      const unsub = onSnapshot(query(collection(db,'players',playerId,'sessions',session.id,'attempts'), orderBy('clientDate','desc'), limit(40)), (snap)=>{
+        bucket.set(session.id, snap.docs.map((d)=>({ id:d.id, sessionId:session.id, sessionMode:session.mode, ...d.data() })));
+        model.attempts = [...bucket.values()].flat();
+        renderPlayerDashboard(model);
+      });
+      model.attemptsUnsubs.push(unsub);
+    });
+  };
+
+  state.detailUnsubs.push(()=> (model.attemptsUnsubs || []).forEach((fn)=>fn && fn()));
+  state.detailUnsubs.push(onSnapshot(doc(db,'players',playerId,'stats','summary'), (snap)=>{ model.summary = snap.exists() ? snap.data() : {}; renderPlayerDashboard(model); }));
+  state.detailUnsubs.push(onSnapshot(query(collection(db,'players',playerId,'sessions'), orderBy('clientDate','desc'), limit(12)), (snap)=>{ model.sessions = snap.docs.map((d)=>({ id:d.id, ...d.data() })).filter((s)=> Number(s.totalAttempts || 0) > 0); refreshAttemptSubs(); renderPlayerDashboard(model); }));
+  state.detailUnsubs.push(onSnapshot(query(collection(db,'players',playerId,'achievements'), orderBy('clientDate','desc'), limit(20)), (snap)=>{ model.achievements = snap.docs.map((d)=>d.data()); renderPlayerDashboard(model); }));
+}
+
+onSnapshot(collection(db,'players'), (snap)=>{
+  snap.docs.forEach((d)=>{
+    const current = state.players.get(d.id) || {};
+    state.players.set(d.id, { ...current, player:{ id:d.id, ...d.data() } });
+    if(!state.playerSnapshotUnsubs.has(d.id)){
+      const unsub = onSnapshot(doc(db,'players',d.id,'snapshots','latest'), (docSnap)=>{
+        const existing = state.players.get(d.id) || { player:{ id:d.id } };
+        state.players.set(d.id, { ...existing, snapshot: docSnap.exists() ? docSnap.data() : {} });
+        if(state.selectedPlayerId === d.id && state.detailModel){ state.detailModel.snapshot = docSnap.exists() ? docSnap.data() : {}; renderPlayerDashboard(state.detailModel); }
+        renderPlayerList();
+      });
+      state.playerSnapshotUnsubs.set(d.id, unsub);
+    }
+  });
+  renderPlayerList();
+  if(!state.selectedPlayerId && snap.docs[0]) selectPlayer(snap.docs[0].id);
+});
+</script>
+</body>
+</html>

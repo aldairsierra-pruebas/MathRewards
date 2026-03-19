@@ -4,7 +4,8 @@
     levels: [
       { id:1, name:'Sumas', type:'add', questions:10, attempts:3, timeLimitSec:60 },
       { id:2, name:'Restas', type:'sub', questions:10, attempts:3, timeLimitSec:60 },
-      { id:3, name:'Multiplicaciones', type:'mul', questions:10, attempts:3, timeLimitSec:60 }
+      { id:3, name:'Multiplicaciones', type:'mul', questions:10, attempts:3, timeLimitSec:60 },
+      { id:4, name:'Desafío', type:'challenge', questions:10, attempts:3, timeLimitSec:75 }
     ],
     basePoints: 10,
     maxLives: 3,
@@ -60,20 +61,22 @@
     hasStarted:false,
     playerId:'Isaac',
     perLevelAdaptiveOffset: { add:0, sub:0, mul:0 },
-    recentResults: { add:[], sub:[], mul:[] },
+    recentResults: { add:[], sub:[], mul:[], challenge:[] },
     currentMetrics:null,
     stats: {
       correctStreak:0,
       fast10Streak:0,
       fast8Streak:0,
       turboTimes:[],
-      correctByType:{ add:0, sub:0, mul:0 },
-      attemptsCount:0
+      correctByType:{ add:0, sub:0, mul:0, challenge:0 },
+      attemptsCount:0,
+      bestStreak:0
     },
     activeMissions: [],
     currentCategory: { attempts:0, correct:0, scoreSum:0 },
-    categoryAggregates: { add:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, sub:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, mul:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0} },
-    medalHistory: []
+    categoryAggregates: { add:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, sub:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, mul:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, challenge:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0} },
+    medalHistory: [],
+    presenceHeartbeatId:null
   };
 
   const sGood = new Audio('https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg');
@@ -102,6 +105,7 @@
   let currentAnswer = 0;
   let currentQuestionLabel = '';
   let currentOperands = [0,0];
+  let currentOperationType = 'add';
 
   function rand(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
   function clamp(v,min=0,max=1){ return Math.max(min, Math.min(max, v)); }
@@ -186,7 +190,7 @@
     }
     els.missionCongratsOverlay.classList.remove('hidden');
     if(window.FirebasePlaceholder && typeof window.FirebasePlaceholder.saveAchievement === 'function'){
-      window.FirebasePlaceholder.saveAchievement({ title: mission.title, medal: mission.medal, type:'mission', category: mission.group, points: state.points }).catch(()=>{});
+      window.FirebasePlaceholder.saveAchievement({ missionId: mission.id, title: mission.title, medal: mission.medal, type:'mission', category: mission.group, points: state.points }).catch(()=>{});
     }
   }
 
@@ -225,6 +229,19 @@
   }
 
 
+  function syncCompletedMissionsFromAchievements(achievements){
+    const today = nowIso().slice(0,10);
+    const completedIds = new Set((achievements || [])
+      .filter((item)=> (item.type || 'mission') === 'mission' && String(item.clientDate || '').slice(0,10) === today)
+      .map((item)=> item.missionId || item.title));
+
+    state.activeMissions = (state.activeMissions || []).map((mission)=>{
+      const isCompleted = completedIds.has(mission.id) || completedIds.has(mission.title);
+      return isCompleted ? { ...mission, completed:true, progress:mission.target } : mission;
+    });
+    renderMissions();
+  }
+
   function renderPlayerInsights(insights){
     if(!insights) return;
     const wk = insights.weekly || {};
@@ -235,10 +252,10 @@
 
     if(els.insByCategory){
       const byCat = insights.byCategory || {};
-      const labels = { add:'Sumas', sub:'Restas', mul:'Multiplicaciones' };
+      const labels = { add:'Sumas', sub:'Restas', mul:'Multiplicaciones', challenge:'Desafío' };
       const rows = Object.entries(byCat)
-        .filter(([k])=>['add','sub','mul'].includes(k))
-        .map(([k,v])=>`${labels[k]}: ${v.correct || 0}/${v.attempts || 0} · HS ${v.highScore || 0}`);
+        .filter(([k])=>['add','sub','mul','challenge'].includes(k))
+        .map(([k,v])=>`${labels[k]}: ${v.correct || 0}/${v.attempts || 0} · HS ${v.highScore || 0} · Avg ${v.avgResponseScore || 0}`);
       els.insByCategory.innerHTML = rows.length ? rows.map((r)=>`<div>${r}</div>`).join('') : 'Sin datos';
     }
 
@@ -246,12 +263,13 @@
       const ach = (insights.recentAchievements || []).slice(0,8);
       els.insAchievements.innerHTML = ach.length ? ach.map((a)=>`<span class="badge-chip">${a.medal || '🏅'} ${a.title || 'Logro'}</span>`).join('') : 'Sin registros';
       state.medalHistory = ach.map((a)=>({ medal:a.medal || '🏅', title:a.title || 'Logro', date:a.clientDate || '' }));
+      syncCompletedMissionsFromAchievements(insights.recentAchievements || []);
       updateMedalSummary();
       renderMedalsHistory();
     }
 
     const fromDb = insights.byCategory || {};
-    ['add','sub','mul'].forEach((k)=>{
+    ['add','sub','mul','challenge'].forEach((k)=>{
       const d = fromDb[k] || {};
       state.categoryAggregates[k] = {
         attempts: Number(d.attempts || 0),
@@ -274,6 +292,38 @@
   }
 
   function inferDeviceType(){ return ('ontouchstart' in window || navigator.maxTouchPoints > 0) ? 'touch' : 'keyboard'; }
+
+  async function syncPresence(extra = {}){
+    if(!window.FirebasePlaceholder || typeof window.FirebasePlaceholder.updatePlayerPresence !== 'function' || !state.playerId){ return; }
+    try{
+      const level = getCurrentLevel();
+      await window.FirebasePlaceholder.updatePlayerPresence({
+        playerId: state.playerId,
+        sessionId: state.sessionId,
+        currentCategory: level ? level.name : null,
+        isActive: Boolean(state.hasStarted || state.levelIndex !== null),
+        lastClientDate: nowIso(),
+        extra
+      });
+    }catch(error){
+      console.warn('No se pudo sincronizar presencia.', error);
+    }
+  }
+
+  function startPresenceHeartbeat(){
+    stopPresenceHeartbeat();
+    state.presenceHeartbeatId = setInterval(()=>{
+      if(document.hidden || !state.playerId || !state.sessionId || state.levelIndex === null){ return; }
+      syncPresence({ currentStreak: state.stats.correctStreak }).catch(()=>{});
+    }, 45000);
+  }
+
+  function stopPresenceHeartbeat(){
+    if(state.presenceHeartbeatId){
+      clearInterval(state.presenceHeartbeatId);
+      state.presenceHeartbeatId = null;
+    }
+  }
 
   function createQuestionMetrics(){
     return {
@@ -348,6 +398,43 @@
     updateHearts();
   }
 
+
+  function randomFrom(items){ return items[rand(0, items.length - 1)]; }
+
+  function generateChallengeQuestion(){
+    const challengeType = randomFrom(['add','sub','mul']);
+    let a;
+    let b;
+    let label;
+    let answer;
+    let sign;
+
+    if(challengeType === 'add'){
+      a = rand(47, 89);
+      b = rand(16, 38);
+      if(((a % 10) + (b % 10)) < 10){ b += 10; }
+      answer = a + b;
+      sign = '+';
+      label = `${a} + ${b}`;
+    } else if(challengeType === 'sub'){
+      a = rand(54, 98);
+      b = rand(18, 47);
+      if((a % 10) >= (b % 10)){ b = Math.min(b + 7, a - 1); }
+      if(b >= a){ [a, b] = [b + rand(12, 24), a]; }
+      answer = a - b;
+      sign = '-';
+      label = `${a} - ${b}`;
+    } else {
+      a = rand(11, 19);
+      b = rand(4, 9);
+      answer = a * b;
+      sign = '×';
+      label = `${a} × ${b}`;
+    }
+
+    return { type: challengeType, a, b, answer, sign, label };
+  }
+
   function deriveDifficulty(type, a, b){
     if(type === 'add'){
       const carry = ((a % 10) + (b % 10)) >= 10;
@@ -402,13 +489,24 @@
     els.tiempo.innerText = '0';
 
     let a,b;
-    const bounds = getAdaptiveBounds(lvl.type);
-    if(lvl.type === 'add'){
-      a = rand(bounds.min,bounds.max); b = rand(bounds.min,bounds.max); currentAnswer = a+b; els.signo.innerText = '+'; currentQuestionLabel = `${a} + ${b}`;
-    } else if(lvl.type === 'sub'){
-      a = rand(bounds.min,bounds.max); b = rand(bounds.min,bounds.max); if(b>a){ [a,b]=[b,a]; } currentAnswer = a-b; els.signo.innerText = '-'; currentQuestionLabel = `${a} - ${b}`;
+    if(lvl.type === 'challenge'){
+      const challenge = generateChallengeQuestion();
+      a = challenge.a;
+      b = challenge.b;
+      currentAnswer = challenge.answer;
+      currentOperationType = challenge.type;
+      els.signo.innerText = challenge.sign;
+      currentQuestionLabel = challenge.label;
     } else {
-      a = rand(bounds.min,bounds.max); b = rand(bounds.min,bounds.max); currentAnswer = a*b; els.signo.innerText = '×'; currentQuestionLabel = `${a} × ${b}`;
+      const bounds = getAdaptiveBounds(lvl.type);
+      currentOperationType = lvl.type;
+      if(lvl.type === 'add'){
+        a = rand(bounds.min,bounds.max); b = rand(bounds.min,bounds.max); currentAnswer = a+b; els.signo.innerText = '+'; currentQuestionLabel = `${a} + ${b}`;
+      } else if(lvl.type === 'sub'){
+        a = rand(bounds.min,bounds.max); b = rand(bounds.min,bounds.max); if(b>a){ [a,b]=[b,a]; } currentAnswer = a-b; els.signo.innerText = '-'; currentQuestionLabel = `${a} - ${b}`;
+      } else {
+        a = rand(bounds.min,bounds.max); b = rand(bounds.min,bounds.max); currentAnswer = a*b; els.signo.innerText = '×'; currentQuestionLabel = `${a} × ${b}`;
+      }
     }
 
     currentOperands = [a,b];
@@ -462,8 +560,8 @@
     const thinkMs = Math.max(0, firstMs - metrics.time_shown_ms);
     const writeMs = Math.max(0, metrics.submit_time_ms - firstMs);
     const totalMs = Math.max(0, metrics.submit_time_ms - metrics.time_shown_ms);
-    const difficulty = deriveDifficulty(lvl.type, currentOperands[0], currentOperands[1]);
-    const responseScore = scoreResponse(Boolean(isCorrect), difficulty.score, totalMs/1000, writeMs/1000, metrics.edits_count, lvl.type);
+    const difficulty = deriveDifficulty(currentOperationType, currentOperands[0], currentOperands[1]);
+    const responseScore = scoreResponse(Boolean(isCorrect), difficulty.score, totalMs/1000, writeMs/1000, metrics.edits_count, currentOperationType);
 
     return {
       sessionId: state.sessionId,
@@ -481,7 +579,7 @@
       difficultyLabel: difficulty.label,
       difficultyScore: difficulty.score,
       mode: lvl.type,
-      operationType: lvl.type,
+      operationType: currentOperationType,
       operands: currentOperands,
       totalAttempts: state.totalAttempts,
       correct: state.totalCorrect,
@@ -507,7 +605,13 @@
       correctCategory: state.categoryAggregates[lvl.type]?.correct || 0,
       wrongCategory: state.categoryAggregates[lvl.type]?.wrong || 0,
       highScoreCategory: state.categoryAggregates[lvl.type]?.highScore || 0,
-      avgResponseScoreCategory: (state.categoryAggregates[lvl.type]?.attempts || 0) > 0 ? Math.round((state.categoryAggregates[lvl.type].scoreSum || 0) / state.categoryAggregates[lvl.type].attempts) : 0
+      avgResponseScoreCategory: (state.categoryAggregates[lvl.type]?.attempts || 0) > 0 ? Math.round((state.categoryAggregates[lvl.type].scoreSum || 0) / state.categoryAggregates[lvl.type].attempts) : 0,
+      currentStreak: state.stats.correctStreak,
+      bestStreak: state.stats.bestStreak,
+      recentAttempts: Math.min((state.recentResults[lvl.type] || []).length, 10),
+      recentCorrect: (state.recentResults[lvl.type] || []).slice(-10).filter((item)=>item.correct).length,
+      recentTimeMs: (state.recentResults[lvl.type] || []).slice(-10).reduce((sum, item)=> sum + (item.totalTimeSec * 1000), 0),
+      challengeType: lvl.type === 'challenge' ? currentOperationType : null
     };
   }
 
@@ -520,8 +624,12 @@
     if(payload.isCorrect){
       state.stats.correctStreak++;
       state.stats.correctByType[payload.mode] = (state.stats.correctByType[payload.mode] || 0) + 1;
+      if(payload.mode === 'challenge' && payload.operationType){
+        state.stats.correctByType[payload.operationType] = (state.stats.correctByType[payload.operationType] || 0) + 1;
+      }
       if((payload.totalTimeMs/1000) < 10){ state.stats.fast10Streak++; } else { state.stats.fast10Streak = 0; }
       if((payload.totalTimeMs/1000) < 8){ state.stats.fast8Streak++; } else { state.stats.fast8Streak = 0; }
+      state.stats.bestStreak = Math.max(state.stats.bestStreak, state.stats.correctStreak);
       state.stats.turboTimes.push(payload.totalTimeMs/1000);
       if(state.stats.turboTimes.length > 3){ state.stats.turboTimes.shift(); }
     } else {
@@ -550,6 +658,17 @@
 
     adjustDifficultyProfile(type);
     updateMissionProgress(payload);
+
+    syncPresence({
+      currentStreak: state.stats.correctStreak,
+      lastQuestion: payload.question,
+      lastAnswerCorrect: payload.isCorrect,
+      attemptsToday: payload.totalAttempts,
+      correctToday: payload.correct,
+      wrongToday: payload.wrong,
+      recentAccuracy: payload.recentAttempts ? Math.round((payload.recentCorrect / payload.recentAttempts) * 100) : 0,
+      avgResponseTimeMsRecent: payload.recentAttempts ? Math.round(payload.recentTimeMs / payload.recentAttempts) : 0
+    }).catch(()=>{});
   }
 
   function saveLocal(){
@@ -654,7 +773,7 @@
       sGood.currentTime = 0; sGood.play().catch(()=>{});
 
       const attemptPayload = buildAttemptPayload({ answer, isCorrect:true, skipped:false, timedOut:false });
-      const difficulty = deriveDifficulty(getCurrentLevel().type, currentOperands[0], currentOperands[1]);
+      const difficulty = deriveDifficulty(currentOperationType, currentOperands[0], currentOperands[1]);
       const gained = config.basePoints + Math.floor((attemptPayload.responseScore || 0) / 20) + difficulty.score;
       state.points += gained;
       state.questionCount++;
@@ -714,6 +833,7 @@
     els.categoryMenu.classList.add('hidden');
     els.gameArea.classList.remove('hidden');
     els.mensaje.innerText = `Elegiste ${getCurrentLevel().name}. Presiona Iniciar para comenzar.`;
+    syncPresence({ currentCategory: getCurrentLevel().name, currentStreak: state.stats.correctStreak }).catch(()=>{});
     generateQuestion();
   }
 
@@ -783,6 +903,7 @@
         window.FirebasePlaceholder.setActivePlayer(selected);
         try { await window.FirebasePlaceholder.logLogin({ playerId: selected }); }
         catch(error){ console.warn('No se pudo registrar login en Firestore.', error); }
+        await syncPresence({ currentStreak: state.stats.correctStreak });
       }
 
       els.overlay.classList.add('hidden');
@@ -823,8 +944,21 @@
       window.FirebasePlaceholder.setActivePlayer(state.playerId);
     }
     await refreshPlayerInsights(state.playerId);
+    await syncPresence({ currentStreak: state.stats.correctStreak });
     els.mensaje.innerText = `Hola ${state.playerId}, selecciona una categoría para iniciar.`;
   };
+
+  startPresenceHeartbeat();
+
+  document.addEventListener('visibilitychange', ()=>{
+    if(!document.hidden && state.playerId && state.sessionId && state.levelIndex !== null){
+      syncPresence({ currentStreak: state.stats.correctStreak }).catch(()=>{});
+    }
+  });
+
+  window.addEventListener('beforeunload', ()=>{
+    stopPresenceHeartbeat();
+  });
 
   syncSelectedPlayer();
   window.addEventListener('firebase-ready', syncSelectedPlayer);
