@@ -7,17 +7,19 @@
 <link rel="icon" type="image/x-icon" href="favicon_Math.ico">
 <style>
 :root{--bg:#f4f7fb;--card:#fff;--line:#dbe4f1;--ink:#17304f;--muted:#6b7b91;--ok:#1f9d57;--okbg:#e9f8ef;--bad:#c0392b;--badbg:#fdeceb;--warn:#d97706;--warnbg:#fff5e8;--accent:#3157d5;--accent-soft:#eef2ff}
-*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--ink)}a{color:var(--accent)}
-.layout{display:grid;grid-template-columns:340px minmax(0,1fr);gap:18px;max-width:1560px;margin:0 auto;padding:18px}.card{background:var(--card);border-radius:18px;box-shadow:0 12px 30px rgba(24,42,71,.08);padding:16px}.stack{display:grid;gap:16px}.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.topbar h1,.topbar h2,.topbar h3{margin:0}.small{font-size:12px;color:var(--muted)}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--ink)}a{color:var(--accent)}button,input{font:inherit}
+.layout{display:grid;grid-template-columns:340px minmax(0,1fr);gap:18px;max-width:1660px;margin:0 auto;padding:18px}.card{background:var(--card);border-radius:18px;box-shadow:0 12px 30px rgba(24,42,71,.08);padding:16px}.stack{display:grid;gap:16px}.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.topbar h1,.topbar h2,.topbar h3{margin:0}.small{font-size:12px;color:var(--muted)}
 .player-list{display:grid;gap:10px}.player-btn{border:1px solid var(--line);border-radius:14px;background:#fff;padding:12px;text-align:left;cursor:pointer}.player-btn.active{border-color:var(--accent);background:var(--accent-soft)}.player-btn:hover{border-color:var(--accent)}
 .badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700}.badge.ok{background:var(--okbg);color:var(--ok)}.badge.bad{background:var(--badbg);color:var(--bad)}.badge.warn{background:var(--warnbg);color:var(--warn)}
 .hero{display:grid;grid-template-columns:1.4fr 1fr;gap:16px}.metrics-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.metric{border:1px solid var(--line);border-radius:14px;padding:12px;background:#fbfdff}.metric strong{display:block;font-size:1.45rem;margin-top:6px}
-.operation-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.op-card{border:1px solid var(--line);border-radius:14px;padding:12px;background:#fbfdff;cursor:pointer}.op-card.active{border-color:var(--accent);background:var(--accent-soft)}.op-card .label{font-weight:700}.op-card .sub{font-size:12px;color:var(--muted);margin-top:6px}
+.operation-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.op-card,.session-card{border:1px solid var(--line);border-radius:14px;padding:12px;background:#fbfdff;cursor:pointer}.op-card.active,.session-card.active{border-color:var(--accent);background:var(--accent-soft)}.op-card .label,.session-card .label{font-weight:700}.op-card .sub,.session-card .sub{font-size:12px;color:var(--muted);margin-top:6px}
 .list{display:grid;gap:10px}.item{border:1px solid var(--line);border-radius:14px;padding:12px;background:#fbfdff}.item.success{background:var(--okbg);border-color:#b7e2c6}.item.error{background:var(--badbg);border-color:#f0b8b2}.item.slow{box-shadow:inset 0 0 0 2px #ffd08a}
-.grid-attempts{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}.kpis{display:grid;gap:8px}.kpi-row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line)}.kpi-row:last-child{border-bottom:none}
+.grid-attempts{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}.kpis{display:grid;gap:8px}.kpi-row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line)}.kpi-row:last-child{border-bottom:none}
 .section-title{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.chips{display:flex;flex-wrap:wrap;gap:8px}.chip{padding:5px 9px;border-radius:999px;background:var(--accent-soft);font-size:12px}.empty{color:var(--muted);font-style:italic}
 .table{width:100%;border-collapse:collapse}.table th,.table td{padding:10px;border-bottom:1px solid var(--line);font-size:13px;text-align:left}.table th{color:var(--muted);font-size:12px;text-transform:uppercase}
-@media (max-width:1200px){.layout{grid-template-columns:1fr}.hero,.metrics-grid,.operation-cards{grid-template-columns:1fr 1fr}} @media (max-width:720px){.metrics-grid,.operation-cards,.hero{grid-template-columns:1fr}}
+.actions-row,.manage-form{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.manage-form input{flex:1;min-width:120px;padding:10px 12px;border:1px solid var(--line);border-radius:12px}.btn{border:none;border-radius:12px;padding:10px 14px;cursor:pointer;font-weight:700}.btn.primary{background:var(--accent);color:#fff}.btn.warn{background:var(--warnbg);color:var(--warn);border:1px solid #f1c27d}.btn.danger{background:var(--badbg);color:var(--bad);border:1px solid #efb0a9}.btn.ghost{background:#fff;border:1px solid var(--line);color:var(--ink)}.inline-note{margin-top:8px;font-size:12px;color:var(--muted)}
+.live-box{display:grid;gap:10px;padding:14px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(135deg,#fbfdff,#f3f6ff)}.live-question{font-size:2rem;font-weight:700;text-align:center;letter-spacing:.04em}.live-answer{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.live-answer .metric strong{font-size:1.1rem}.session-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+@media (max-width:1200px){.layout{grid-template-columns:1fr}.hero,.metrics-grid,.operation-cards{grid-template-columns:1fr 1fr}} @media (max-width:720px){.metrics-grid,.operation-cards,.hero,.live-answer{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -31,7 +33,13 @@
         </div>
         <a href="index.html">Ir al juego</a>
       </div>
-      <div id="playerList" class="player-list"></div>
+      <div class="manage-form">
+        <input id="newPlayerName" type="text" placeholder="Nuevo jugador" maxlength="40">
+        <button id="btnAddPlayer" class="btn primary" type="button">Añadir</button>
+      </div>
+      <div class="inline-note">Puedes crear o eliminar jugadores directamente desde este monitor.</div>
+      <div id="playerActionStatus" class="small" style="margin-top:8px;"></div>
+      <div id="playerList" class="player-list" style="margin-top:12px;"></div>
     </div>
   </aside>
 
@@ -42,7 +50,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-import { getFirestore, collection, doc, query, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+import { getFirestore, collection, doc, query, orderBy, limit, onSnapshot, getDocs, getDoc, setDoc, deleteDoc, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBLqVCqW2s7piZQUH0dHODjK4JXAv74TdA",
@@ -58,8 +66,14 @@ const SLOW_RESPONSE_MS = 15000;
 const CATEGORY_LABELS = { add:'Sumas', sub:'Restas', mul:'Multiplicaciones', challenge:'Desafío', general:'General' };
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const state = { players:new Map(), selectedPlayerId:null, playerSnapshotUnsubs:new Map(), detailUnsubs:[], detailModel:null };
-const els = { playerList:document.getElementById('playerList'), playerDashboard:document.getElementById('playerDashboard') };
+const state = { players:new Map(), selectedPlayerId:null, playerSnapshotUnsubs:new Map(), detailUnsubs:[], detailModel:null, busy:false };
+const els = {
+  playerList:document.getElementById('playerList'),
+  playerDashboard:document.getElementById('playerDashboard'),
+  newPlayerName:document.getElementById('newPlayerName'),
+  btnAddPlayer:document.getElementById('btnAddPlayer'),
+  playerActionStatus:document.getElementById('playerActionStatus')
+};
 
 function tsToDate(value){ if(!value) return null; if(typeof value.toDate === 'function') return value.toDate(); const d = new Date(value); return Number.isNaN(d.getTime()) ? null : d; }
 function fmtDate(value){ const d = tsToDate(value); return d ? d.toLocaleString('es-MX') : '—'; }
@@ -70,22 +84,32 @@ function statusMeta(snapshot){ if(isActive(snapshot)) return ['Activo','ok']; if
 function minutesAgo(snapshot){ const d = tsToDate(snapshot?.lastActivityAt) || tsToDate(snapshot?.lastClientDate); if(!d) return '—'; const secs = Math.max(0, Math.round((Date.now()-d.getTime())/1000)); return secs < 60 ? `${secs}s` : `${Math.floor(secs/60)}m`; }
 function accuracy(correct, attempts){ return attempts ? Math.round((correct / attempts) * 100) : 0; }
 function isSlow(attempt){ return Number(attempt.totalTimeMs || attempt.tiempoTotalMs || 0) >= SLOW_RESPONSE_MS; }
+function normalizePlayerId(value){ return String(value || '').trim().replace(/\s+/g,' ').slice(0,40); }
+function setStatus(message, isError=false){ els.playerActionStatus.textContent = message || ''; els.playerActionStatus.style.color = isError ? 'var(--bad)' : 'var(--muted)'; }
 
 function renderPlayerList(){
   const rows = [...state.players.values()].sort((a,b)=> String(a.player.displayName || a.player.id).localeCompare(String(b.player.displayName || b.player.id), 'es'));
   els.playerList.innerHTML = rows.length ? rows.map(({player,snapshot})=>{
     const [status,statusClass] = statusMeta(snapshot);
-    return `<button class="player-btn ${state.selectedPlayerId===player.id?'active':''}" data-player-id="${player.id}">
-      <div style="display:flex;justify-content:space-between;gap:8px;align-items:start;">
-        <div><strong>${escapeHtml(player.displayName || player.id)}</strong><div class="small">${escapeHtml(player.id)}</div></div>
-        <span class="badge ${statusClass}">${status}</span>
+    return `<div class="item" style="padding:10px;">
+      <button class="player-btn ${state.selectedPlayerId===player.id?'active':''}" data-player-id="${player.id}" style="width:100%;border:none;padding:0;background:transparent;">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:start;">
+          <div><strong>${escapeHtml(player.displayName || player.id)}</strong><div class="small">${escapeHtml(player.id)}</div></div>
+          <span class="badge ${statusClass}">${status}</span>
+        </div>
+        <div class="small" style="margin-top:8px;">Categoría: ${escapeHtml(humanCategory(snapshot?.currentCategory))}</div>
+        <div class="small">Última actividad: ${minutesAgo(snapshot)}</div>
+        <div class="small">Intentos: ${Number(snapshot?.attemptsToday || 0)} · Precisión: ${Number(snapshot?.recentAccuracy || 0)}%</div>
+      </button>
+      <div class="actions-row" style="margin-top:10px;">
+        <button class="btn ghost" data-select-player="${player.id}" type="button">Abrir</button>
+        <button class="btn danger" data-delete-player="${player.id}" type="button">Eliminar</button>
       </div>
-      <div class="small" style="margin-top:8px;">Categoría: ${escapeHtml(humanCategory(snapshot?.currentCategory))}</div>
-      <div class="small">Última actividad: ${minutesAgo(snapshot)}</div>
-      <div class="small">Intentos: ${Number(snapshot?.attemptsToday || 0)} · Precisión: ${Number(snapshot?.recentAccuracy || 0)}%</div>
-    </button>`;
+    </div>`;
   }).join('') : '<div class="empty">Sin jugadores.</div>';
-  [...els.playerList.querySelectorAll('[data-player-id]')].forEach((btn)=> btn.addEventListener('click', ()=> selectPlayer(btn.dataset.playerId)));
+
+  [...els.playerList.querySelectorAll('[data-player-id],[data-select-player]')].forEach((btn)=> btn.addEventListener('click', ()=> selectPlayer(btn.dataset.playerId || btn.dataset.selectPlayer)));
+  [...els.playerList.querySelectorAll('[data-delete-player]')].forEach((btn)=> btn.addEventListener('click', (event)=>{ event.stopPropagation(); deletePlayer(btn.dataset.deletePlayer); }));
 }
 
 function buildCategoryStats(attempts){
@@ -105,21 +129,27 @@ function renderPlayerDashboard(model){
   model.snapshot = state.players.get(model.player.id)?.snapshot || model.snapshot || {};
   const snapshot = model.snapshot || {};
   const summary = model.summary || {};
-  const attempts = (model.attempts || []).slice().sort((a,b)=> new Date(b.clientDate || 0) - new Date(a.clientDate || 0));
+  const attempts = (model.attempts || []).slice().sort((a,b)=> new Date(b.clientDate || b.timestamp || 0) - new Date(a.clientDate || a.timestamp || 0));
   const achievements = model.achievements || [];
   const sessions = (model.sessions || []).filter((s)=> Number(s.totalAttempts || 0) > 0);
   const [status,statusClass] = statusMeta(snapshot);
   const categoryStats = buildCategoryStats(attempts);
-  const opFilter = model.operationFilter || 'challenge';
+  const opFilter = model.operationFilter || 'all';
+  const sessionFilter = model.sessionFilter || 'all';
   const visibleAttempts = attempts.filter((attempt)=>{
     const bucket = attempt.mode === 'challenge' ? 'challenge' : (attempt.operationType || attempt.mode || 'general');
-    return bucket === opFilter;
+    const matchesOperation = opFilter === 'all' ? true : bucket === opFilter;
+    const matchesSession = sessionFilter === 'all' ? true : attempt.sessionId === sessionFilter;
+    return matchesOperation && matchesSession;
   });
+  const selectedSession = sessionFilter === 'all' ? null : sessions.find((session)=>session.id===sessionFilter) || null;
   const errorGroups = visibleAttempts.filter((a)=>!a.isCorrect).reduce((acc, attempt)=>{
     const key = humanCategory(attempt.mode === 'challenge' ? 'challenge' : (attempt.operationType || attempt.mode));
     acc[key] = (acc[key] || 0) + 1;
     return acc;
   }, {});
+  const liveQuestion = snapshot.currentQuestion || snapshot.lastQuestion || 'Sin problema activo';
+  const liveDraft = snapshot.currentResponseDraft ?? '';
 
   els.playerDashboard.innerHTML = `
     <div class="hero">
@@ -146,17 +176,35 @@ function renderPlayerDashboard(model){
           <div class="kpi-row"><span>Precisión reciente</span><strong>${Number(snapshot.recentAccuracy || 0)}%</strong></div>
           <div class="kpi-row"><span>Sesión actual</span><strong>${escapeHtml(snapshot.sessionId || '—')}</strong></div>
           <div class="kpi-row"><span>Categoría actual</span><strong>${escapeHtml(humanCategory(snapshot.currentCategory))}</strong></div>
-          <div class="kpi-row"><span>Última pregunta</span><strong>${escapeHtml(snapshot.lastQuestion || '—')}</strong></div>
+          <div class="kpi-row"><span>Última respuesta</span><strong>${snapshot.lastAnswerCorrect === true ? '✅ Correcta' : snapshot.lastAnswerCorrect === false ? '❌ Incorrecta' : '—'}</strong></div>
+        </div>
+        <div class="actions-row" style="margin-top:14px;">
+          <button id="btnResetStats" class="btn warn" type="button">Reestablecer estadísticas</button>
         </div>
       </div>
     </div>
 
     <div class="card">
-      <div class="section-title"><h3>Resumen por operación</h3><span class="small">Haz clic para ver los problemas de cada apartado.</span></div>
-      <div class="operation-cards" id="operationCards">${['add','sub','mul','challenge'].map((key)=>{
-        const data = categoryStats[key] || {attempts:0,correct:0,wrong:0,slow:0};
+      <div class="section-title"><h3>Ver en línea</h3><span class="small">Se actualiza cuando empieza una pregunta, escribe o responde.</span></div>
+      <div class="live-box">
+        <div class="small">Problema actual</div>
+        <div class="live-question">${escapeHtml(liveQuestion)}</div>
+        <div class="live-answer">
+          <div class="metric"><span class="small">Respuesta escrita</span><strong>${escapeHtml(liveDraft === '' ? '—' : liveDraft)}</strong></div>
+          <div class="metric"><span class="small">Esperada</span><strong>${escapeHtml(snapshot.lastExpectedAnswer ?? '—')}</strong></div>
+          <div class="metric"><span class="small">Última enviada</span><strong>${escapeHtml(snapshot.lastPlayerAnswer ?? '—')}</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title"><h3>Resumen por operación</h3><span class="small">Ahora puedes ver todas las operaciones o filtrar por una categoría específica.</span></div>
+      <div class="operation-cards" id="operationCards">${['all','add','sub','mul','challenge'].map((key)=>{
+        const data = key === 'all'
+          ? attempts.reduce((acc, item)=>({ attempts:acc.attempts+1, correct:acc.correct + (item.isCorrect?1:0), wrong:acc.wrong + (item.isCorrect?0:1), slow:acc.slow + (isSlow(item)?1:0) }), {attempts:0,correct:0,wrong:0,slow:0})
+          : (categoryStats[key] || {attempts:0,correct:0,wrong:0,slow:0});
         return `<button class="op-card ${opFilter===key?'active':''}" data-operation="${key}">
-          <div class="label">${humanCategory(key)}</div>
+          <div class="label">${key === 'all' ? 'Todas' : humanCategory(key)}</div>
           <div class="sub">${data.correct}/${data.attempts} correctos · ${accuracy(data.correct, data.attempts)}%</div>
           <div class="sub">Errores: ${data.wrong} · Lentos: ${data.slow}</div>
         </button>`;
@@ -164,14 +212,30 @@ function renderPlayerDashboard(model){
     </div>
 
     <div class="card">
-      <div class="section-title"><h3>Problemas y resultados de ${humanCategory(opFilter)}</h3><span class="small">Marca amarilla = tardó mucho en responder.</span></div>
-      <div class="chips">${Object.entries(errorGroups).length ? Object.entries(errorGroups).map(([key,value])=>`<span class="chip">${escapeHtml(key)}: ${value} errores</span>`).join('') : '<span class="empty">Sin errores en este apartado.</span>'}</div>
+      <div class="section-title"><h3>Sesiones</h3><span class="small">Elige una sesión para que ese sea el evento/origen mostrado en la lista de operaciones.</span></div>
+      <div class="session-grid" id="sessionCards">
+        <button class="session-card ${sessionFilter==='all'?'active':''}" data-session-filter="all" type="button">
+          <div class="label">Todas las sesiones</div>
+          <div class="sub">${attempts.length} operaciones registradas</div>
+        </button>
+        ${sessions.length ? sessions.map((session)=>`<button class="session-card ${sessionFilter===session.id?'active':''}" data-session-filter="${session.id}" type="button">
+          <div class="label">${escapeHtml(humanCategory(session.mode))}</div>
+          <div class="sub">${fmtDate(session.clientDate)} · ${escapeHtml(session.id)}</div>
+          <div class="sub">Intentos ${Number(session.totalAttempts || 0)} · aciertos ${Number(session.correct || 0)} · errores ${Number(session.wrong || 0)}</div>
+        </button>`).join('') : '<div class="empty">Sin sesiones jugadas.</div>'}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title"><h3>Operaciones contestadas</h3><span class="small">${selectedSession ? `Mostrando evento de la sesión ${escapeHtml(selectedSession.id)}.` : 'Mostrando todas las operaciones registradas.'}</span></div>
+      <div class="chips">${Object.entries(errorGroups).length ? Object.entries(errorGroups).map(([key,value])=>`<span class="chip">${escapeHtml(key)}: ${value} errores</span>`).join('') : '<span class="empty">Sin errores en este filtro.</span>'}</div>
       <div class="grid-attempts" style="margin-top:12px;">${visibleAttempts.length ? visibleAttempts.map((attempt)=>{
         const correct = Boolean(attempt.isCorrect);
         const slow = isSlow(attempt);
         const classes = ['item', correct ? 'success' : 'error', slow ? 'slow' : ''].join(' ');
         return `<div class="${classes}">
           <strong>${escapeHtml(attempt.question || 'Operación')}</strong>
+          <div class="small">Sesión: ${escapeHtml(attempt.sessionId || '—')} · Evento: ${escapeHtml(humanCategory(attempt.sessionMode || attempt.mode))}</div>
           <div class="small">Resultado esperado: ${escapeHtml(attempt.expectedAnswer ?? '—')} · Respuesta: ${escapeHtml(attempt.userAnswer ?? '—')}</div>
           <div class="small">${correct ? '✅ Correcto' : '❌ Erróneo'}${slow ? ' · ⏱ Lento' : ''}</div>
           <div class="small">Tiempo total: ${Number(attempt.totalTimeMs || 0)} ms</div>
@@ -179,45 +243,49 @@ function renderPlayerDashboard(model){
           <div class="small">Categoría: ${escapeHtml(humanCategory(attempt.mode))} · Tipo: ${escapeHtml(humanCategory(attempt.operationType))}</div>
           <div class="small">Fecha: ${fmtDate(attempt.clientDate || attempt.timestamp)}</div>
         </div>`;
-      }).join('') : '<div class="empty">Sin problemas registrados en este apartado.</div>'}</div>
+      }).join('') : '<div class="empty">Sin problemas registrados en este filtro.</div>'}</div>
     </div>
 
     <div class="hero">
       <div class="card">
-        <div class="section-title"><h3>Sesiones</h3><span class="small">Solo se muestran sesiones con intentos reales.</span></div>
-        <div class="list">${sessions.length ? sessions.map((session)=>`<div class="item"><strong>${escapeHtml(humanCategory(session.mode))}</strong><div class="small">${fmtDate(session.clientDate)} · intentos ${Number(session.totalAttempts || 0)} · aciertos ${Number(session.correct || 0)} · errores ${Number(session.wrong || 0)}</div></div>`).join('') : '<div class="empty">Sin sesiones jugadas.</div>'}</div>
-      </div>
-      <div class="card">
         <div class="section-title"><h3>Misiones y logros guardados</h3></div>
         <div class="list">${achievements.length ? achievements.map((achievement)=>`<div class="item"><strong>${escapeHtml(achievement.medal || '🏅')} ${escapeHtml(achievement.title || 'Logro')}</strong><div class="small">Tipo: ${escapeHtml(achievement.type || 'mission')} · Categoría: ${escapeHtml(humanCategory(achievement.category))}</div><div class="small">Fecha: ${fmtDate(achievement.clientDate || achievement.timestamp)}</div></div>`).join('') : '<div class="empty">Sin logros guardados.</div>'}</div>
       </div>
+      <div class="card">
+        <div class="section-title"><h3>Estado del snapshot</h3></div>
+        <div class="kpis">
+          <div class="kpi-row"><span>Última pregunta visible</span><strong>${escapeHtml(snapshot.lastQuestion || '—')}</strong></div>
+          <div class="kpi-row"><span>Problema actual</span><strong>${escapeHtml(snapshot.currentQuestion || '—')}</strong></div>
+          <div class="kpi-row"><span>Borrador en vivo</span><strong>${escapeHtml(liveDraft === '' ? '—' : liveDraft)}</strong></div>
+          <div class="kpi-row"><span>Actualizado</span><strong>${fmtDate(snapshot.updatedAt || snapshot.lastActivityAt || snapshot.lastClientDate)}</strong></div>
+        </div>
+      </div>
     </div>`;
 
-  [...els.playerDashboard.querySelectorAll('[data-operation]')].forEach((btn)=> btn.addEventListener('click', ()=>{
-    model.operationFilter = btn.dataset.operation;
-    renderPlayerDashboard(model);
-  }));
+  [...els.playerDashboard.querySelectorAll('[data-operation]')].forEach((btn)=> btn.addEventListener('click', ()=>{ model.operationFilter = btn.dataset.operation; renderPlayerDashboard(model); }));
+  [...els.playerDashboard.querySelectorAll('[data-session-filter]')].forEach((btn)=> btn.addEventListener('click', ()=>{ model.sessionFilter = btn.dataset.sessionFilter; renderPlayerDashboard(model); }));
+  const btnReset = document.getElementById('btnResetStats');
+  if(btnReset){ btnReset.addEventListener('click', ()=> resetPlayerStats(model.player.id)); }
 }
 
 function clearDetailSubs(){ state.detailUnsubs.forEach((fn)=>fn && fn()); state.detailUnsubs = []; }
-
 function selectPlayer(playerId){ state.selectedPlayerId = playerId; renderPlayerList(); subscribePlayerDetail(playerId); }
 
 function subscribePlayerDetail(playerId){
   clearDetailSubs();
   const player = state.players.get(playerId)?.player;
-  const model = { player, snapshot: state.players.get(playerId)?.snapshot, summary:{}, sessions:[], achievements:[], attempts:[], operationFilter:'challenge', attemptsUnsubs:[] };
+  const model = { player, snapshot: state.players.get(playerId)?.snapshot, summary:{}, sessions:[], achievements:[], attempts:[], operationFilter:'all', sessionFilter:'all', attemptsUnsubs:[] };
   state.detailModel = model;
   renderPlayerDashboard(model);
 
   const refreshAttemptSubs = () => {
     (model.attemptsUnsubs || []).forEach((fn)=>fn && fn());
     model.attemptsUnsubs = [];
-    const sessionList = (model.sessions || []).filter((s)=> Number(s.totalAttempts || 0) > 0).slice(0,5);
+    const sessionList = (model.sessions || []).filter((s)=> Number(s.totalAttempts || 0) > 0).slice(0,20);
     if(!sessionList.length){ model.attempts = []; renderPlayerDashboard(model); return; }
     const bucket = new Map();
     sessionList.forEach((session)=>{
-      const unsub = onSnapshot(query(collection(db,'players',playerId,'sessions',session.id,'attempts'), orderBy('clientDate','desc'), limit(40)), (snap)=>{
+      const unsub = onSnapshot(query(collection(db,'players',playerId,'sessions',session.id,'attempts'), orderBy('clientDate','desc'), limit(120)), (snap)=>{
         bucket.set(session.id, snap.docs.map((d)=>({ id:d.id, sessionId:session.id, sessionMode:session.mode, ...d.data() })));
         model.attempts = [...bucket.values()].flat();
         renderPlayerDashboard(model);
@@ -228,11 +296,92 @@ function subscribePlayerDetail(playerId){
 
   state.detailUnsubs.push(()=> (model.attemptsUnsubs || []).forEach((fn)=>fn && fn()));
   state.detailUnsubs.push(onSnapshot(doc(db,'players',playerId,'stats','summary'), (snap)=>{ model.summary = snap.exists() ? snap.data() : {}; renderPlayerDashboard(model); }));
-  state.detailUnsubs.push(onSnapshot(query(collection(db,'players',playerId,'sessions'), orderBy('clientDate','desc'), limit(12)), (snap)=>{ model.sessions = snap.docs.map((d)=>({ id:d.id, ...d.data() })).filter((s)=> Number(s.totalAttempts || 0) > 0); refreshAttemptSubs(); renderPlayerDashboard(model); }));
-  state.detailUnsubs.push(onSnapshot(query(collection(db,'players',playerId,'achievements'), orderBy('clientDate','desc'), limit(20)), (snap)=>{ model.achievements = snap.docs.map((d)=>d.data()); renderPlayerDashboard(model); }));
+  state.detailUnsubs.push(onSnapshot(query(collection(db,'players',playerId,'sessions'), orderBy('clientDate','desc'), limit(30)), (snap)=>{ model.sessions = snap.docs.map((d)=>({ id:d.id, ...d.data() })).filter((s)=> Number(s.totalAttempts || 0) > 0); refreshAttemptSubs(); renderPlayerDashboard(model); }));
+  state.detailUnsubs.push(onSnapshot(query(collection(db,'players',playerId,'achievements'), orderBy('clientDate','desc'), limit(50)), (snap)=>{ model.achievements = snap.docs.map((d)=>d.data()); renderPlayerDashboard(model); }));
 }
 
+async function createPlayer(){
+  const playerId = normalizePlayerId(els.newPlayerName.value);
+  if(!playerId){ setStatus('Escribe un nombre válido para el jugador.', true); return; }
+  try{
+    setStatus('Creando jugador...');
+    const ref = doc(db,'players',playerId);
+    const existing = await getDoc(ref);
+    if(existing.exists()){ setStatus('Ese jugador ya existe.', true); return; }
+    await setDoc(ref, { displayName: playerId, avatar:'robot-custom', active:true, createdAt:serverTimestamp() }, { merge:true });
+    await setDoc(doc(db,'players',playerId,'stats','summary'), { totalAttempts:0, totalCorrect:0, totalWrong:0, totalTimeMs:0, bestStreak:0, currentStreak:0, lastPlayedAt:serverTimestamp(), rankPoints:0 }, { merge:true });
+    els.newPlayerName.value = '';
+    setStatus(`Jugador ${playerId} creado.`);
+    selectPlayer(playerId);
+  }catch(error){ console.error(error); setStatus('No se pudo crear el jugador.', true); }
+}
+
+async function deleteCollectionDocs(refs){
+  if(!refs.length) return;
+  const chunkSize = 400;
+  for(let i=0;i<refs.length;i+=chunkSize){
+    const batch = writeBatch(db);
+    refs.slice(i,i+chunkSize).forEach((ref)=> batch.delete(ref));
+    await batch.commit();
+  }
+}
+
+async function resetPlayerStats(playerId, { skipConfirm = false } = {}){
+  if(!playerId || (!skipConfirm && !confirm(`¿Reestablecer todas las estadísticas de ${playerId}? Esta acción borra sesiones, logros y snapshot.`))) return;
+  try{
+    setStatus(`Reestableciendo estadísticas de ${playerId}...`);
+    const sessionSnap = await getDocs(collection(db,'players',playerId,'sessions'));
+    const deleteRefs = [];
+    for(const sessionDoc of sessionSnap.docs){
+      const attemptsSnap = await getDocs(collection(db,'players',playerId,'sessions',sessionDoc.id,'attempts'));
+      attemptsSnap.forEach((attemptDoc)=> deleteRefs.push(attemptDoc.ref));
+      deleteRefs.push(sessionDoc.ref);
+    }
+    const achievementsSnap = await getDocs(collection(db,'players',playerId,'achievements'));
+    achievementsSnap.forEach((docSnap)=> deleteRefs.push(docSnap.ref));
+    const loginsSnap = await getDocs(collection(db,'players',playerId,'logins'));
+    loginsSnap.forEach((docSnap)=> deleteRefs.push(docSnap.ref));
+    const daySnap = await getDocs(collection(db,'players',playerId,'stats','summary','by_day'));
+    for(const dayDoc of daySnap.docs){
+      const catSnap = await getDocs(collection(db,'players',playerId,'stats','summary','by_day',dayDoc.id,'categorias'));
+      for(const catDoc of catSnap.docs){
+        const hourSnap = await getDocs(collection(db,'players',playerId,'stats','summary','by_day',dayDoc.id,'categorias',catDoc.id,'by_start_hour'));
+        hourSnap.forEach((hourDoc)=> deleteRefs.push(hourDoc.ref));
+        deleteRefs.push(catDoc.ref);
+      }
+      deleteRefs.push(dayDoc.ref);
+    }
+    deleteRefs.push(doc(db,'players',playerId,'snapshots','latest'));
+    await deleteCollectionDocs(deleteRefs);
+    await setDoc(doc(db,'players',playerId,'stats','summary'), { totalAttempts:0, totalCorrect:0, totalWrong:0, totalTimeMs:0, bestStreak:0, currentStreak:0, lastPlayedAt:serverTimestamp(), rankPoints:0 }, { merge:false });
+    setStatus(`Estadísticas de ${playerId} reestablecidas.`);
+  }catch(error){ console.error(error); setStatus('No se pudieron reestablecer las estadísticas.', true); }
+}
+
+async function deletePlayer(playerId){
+  if(!playerId || !confirm(`¿Eliminar al jugador ${playerId}? También se borrarán sus estadísticas visibles.`)) return;
+  try{
+    await resetPlayerStats(playerId, { skipConfirm:true });
+    await deleteDoc(doc(db,'players',playerId,'stats','summary'));
+    await deleteDoc(doc(db,'players',playerId));
+    if(state.selectedPlayerId === playerId){ clearDetailSubs(); state.selectedPlayerId = null; state.detailModel = null; els.playerDashboard.innerHTML = 'Selecciona un jugador del panel izquierdo.'; }
+    setStatus(`Jugador ${playerId} eliminado.`);
+  }catch(error){ console.error(error); setStatus('No se pudo eliminar el jugador.', true); }
+}
+
+els.btnAddPlayer.addEventListener('click', createPlayer);
+els.newPlayerName.addEventListener('keydown', (event)=>{ if(event.key === 'Enter'){ event.preventDefault(); createPlayer(); } });
+
 onSnapshot(collection(db,'players'), (snap)=>{
+  const incomingIds = new Set(snap.docs.map((d)=>d.id));
+  [...state.players.keys()].forEach((id)=>{
+    if(!incomingIds.has(id)){
+      state.players.delete(id);
+      const unsub = state.playerSnapshotUnsubs.get(id);
+      if(unsub){ unsub(); state.playerSnapshotUnsubs.delete(id); }
+    }
+  });
+
   snap.docs.forEach((d)=>{
     const current = state.players.get(d.id) || {};
     state.players.set(d.id, { ...current, player:{ id:d.id, ...d.data() } });
@@ -247,6 +396,11 @@ onSnapshot(collection(db,'players'), (snap)=>{
     }
   });
   renderPlayerList();
+  if(state.selectedPlayerId && !state.players.has(state.selectedPlayerId)){
+    state.selectedPlayerId = null;
+    clearDetailSubs();
+    els.playerDashboard.innerHTML = 'Selecciona un jugador del panel izquierdo.';
+  }
   if(!state.selectedPlayerId && snap.docs[0]) selectPlayer(snap.docs[0].id);
 });
 </script>
