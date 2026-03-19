@@ -57,6 +57,8 @@
     totalCorrect:0,
     totalWrong:0,
     totalTimeMs:0,
+    skipsRemaining:2,
+    isPaused:false,
     isReadyToAnswer:false,
     hasStarted:false,
     playerId:'Isaac',
@@ -73,6 +75,7 @@
       bestStreak:0
     },
     activeMissions: [],
+    remoteMissions: [],
     currentCategory: { attempts:0, correct:0, scoreSum:0 },
     categoryAggregates: { add:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, sub:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, mul:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, challenge:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0} },
     medalHistory: [],
@@ -87,12 +90,12 @@
 
   const els = {
     d1: document.getElementById('d1'), u1: document.getElementById('u1'), d2: document.getElementById('d2'), u2: document.getElementById('u2'), signo: document.getElementById('signo'),
-    respuesta: document.getElementById('respuesta'), btn: document.getElementById('btnResponder'), btnSkip: document.getElementById('btnSkip'), btnIniciar: document.getElementById('btnIniciar'),
+    respuesta: document.getElementById('respuesta'), btn: document.getElementById('btnResponder'), btnSkip: document.getElementById('btnSkip'), btnPause: document.getElementById('btnPause'), btnIniciar: document.getElementById('btnIniciar'),
     puntos: document.getElementById('puntos'), vidas: document.getElementById('vidas'), vidasUI: document.getElementById('vidasUI'), tiempo: document.getElementById('tiempo'),
     nivelTxt: document.getElementById('nivelTxt'), categoriaTxt: document.getElementById('categoriaTxt'), progresoNivelFill: document.getElementById('progresoNivelFill'),
     mensaje: document.getElementById('mensaje'), xpFill: document.getElementById('xpFill'), xpText: document.getElementById('xp'), xpTarget: document.getElementById('xpTarget'),
     panelOperacion: document.getElementById('panelOperacion'), countdown: document.getElementById('countdown'), overlay: document.getElementById('loginOverlay'), overlayPlayerSelect: document.getElementById('overlayPlayerSelect'),
-    overlayStatus: document.getElementById('overlayStatus'), btnIngresar: document.getElementById('btnIngresar'), categoryMenu: document.getElementById('categoryMenu'), gameArea: document.getElementById('gameArea'),
+    overlayStatus: document.getElementById('overlayStatus'), btnIngresar: document.getElementById('btnIngresar'), categoryMenu: document.getElementById('categoryMenu'), gameArea: document.getElementById('gameArea'), pauseOverlay: document.getElementById('pauseOverlay'), btnResumePause: document.getElementById('btnResumePause'), skipCount: document.getElementById('skipCount'),
     missionList: document.getElementById('missionList'), finalOverlay: document.getElementById('finalOverlay'), finalScoreText: document.getElementById('finalScoreText'), finalMessage: document.getElementById('finalMessage'),
     btnFinalContinue: document.getElementById('btnFinalContinue'), missionCongratsOverlay: document.getElementById('missionCongratsOverlay'), missionCongratsText: document.getElementById('missionCongratsText'),
     btnMissionContinue: document.getElementById('btnMissionContinue'),
@@ -129,11 +132,11 @@
     }
   }
 
-  function buildSessionId(){
+  function buildSessionId(mode = 'general'){
     const d = new Date();
     const pad = (n, size = 2) => String(n).padStart(size,'0');
-    const randomSuffix = Math.random().toString(36).slice(2,6);
-    return `s_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}${pad(d.getMilliseconds(),3)}_${randomSuffix}`;
+    const modeLabel = ({ add:'sumas', sub:'restas', mul:'multiplicaciones', challenge:'desafio' }[mode] || String(mode || 'general').toLowerCase().replace(/[^a-z0-9]+/g,'-'));
+    return `${pad(d.getDate())}${pad(d.getMonth()+1)}${d.getFullYear()}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}_${modeLabel}`;
   }
 
   function daySeed(){
@@ -155,13 +158,21 @@
   function renderMissions(){
     if(!els.missionList) return;
     els.missionList.innerHTML = '';
-    state.activeMissions.forEach((m)=>{
+    const localMissions = (state.activeMissions || []).map((m)=> ({
+      className: `mission-item ${m.completed ? 'done' : ''}` ,
+      html: `<strong>${m.title}</strong><br><small>${m.description}</small><br><small>Progreso: ${m.group === 'daily' && m.id === 'daily_5m' ? `${Math.floor(m.progress)}s/${m.target}s` : `${m.progress}/${m.target}`}</small>`
+    }));
+    const remoteMissions = (state.remoteMissions || []).map((m)=> ({
+      className: 'mission-item',
+      html: `<strong>🎯 ${m.title || 'Misión personalizada'}</strong><br><small>${m.description || 'Sin descripción'}</small><br><small>Expira: ${m.expiresAt ? new Date(m.expiresAt).toLocaleString('es-MX') : 'Sin vencimiento'}</small>${m.rewardLabel ? `<br><small>Premio: ${m.rewardLabel}</small>` : ''}`
+    }));
+    [...localMissions, ...remoteMissions].forEach((entry)=>{
       const div = document.createElement('div');
-      div.className = `mission-item ${m.completed ? 'done' : ''}`;
-      const prog = m.group === 'daily' && m.id === 'daily_5m' ? `${Math.floor(m.progress)}s/${m.target}s` : `${m.progress}/${m.target}`;
-      div.innerHTML = `<strong>${m.title}</strong><br><small>${m.description}</small><br><small>Progreso: ${prog}</small>`;
+      div.className = entry.className;
+      div.innerHTML = entry.html;
       els.missionList.appendChild(div);
     });
+    if(!localMissions.length && !remoteMissions.length){ els.missionList.innerHTML = '<div class="mission-item">Sin misiones activas.</div>'; }
   }
 
 
@@ -282,6 +293,17 @@
     });
   }
 
+
+  async function refreshRemoteMissions(playerId){
+    if(!window.FirebasePlaceholder || typeof window.FirebasePlaceholder.listPlayerMissions !== 'function'){ return; }
+    try{
+      state.remoteMissions = await window.FirebasePlaceholder.listPlayerMissions(playerId || state.playerId);
+      renderMissions();
+    }catch(error){
+      console.warn('No se pudieron cargar misiones remotas.', error);
+    }
+  }
+
   async function refreshPlayerInsights(playerId){
     if(!window.FirebasePlaceholder || typeof window.FirebasePlaceholder.getPlayerInsights !== 'function') return;
     try{
@@ -315,7 +337,7 @@
     stopPresenceHeartbeat();
     state.presenceHeartbeatId = setInterval(()=>{
       if(document.hidden || !state.playerId || !state.sessionId || state.levelIndex === null){ return; }
-      syncPresence({ currentStreak: state.stats.correctStreak }).catch(()=>{});
+      syncPresence({ currentStreak: state.stats.correctStreak, skipsRemaining: state.skipsRemaining }).catch(()=>{});
     }, 45000);
   }
 
@@ -366,7 +388,7 @@
     });
   }
 
-  function setGameControlsEnabled(enabled){ els.btn.disabled = !enabled; els.btnSkip.disabled = !enabled; els.respuesta.disabled = !enabled; }
+  function setGameControlsEnabled(enabled){ els.btn.disabled = !enabled; els.btnSkip.disabled = !enabled; if(els.btnPause) els.btnPause.disabled = !enabled; els.respuesta.disabled = !enabled; }
   function setDefaultInput(){ els.respuesta.value = ''; }
   let presenceInputDebounce = null;
 
@@ -386,6 +408,11 @@
       if(i === animatedLostIndex){ heart.classList.add('life-loss'); }
       els.vidasUI.appendChild(heart);
     }
+  }
+
+  function updateSkipCounter(){
+    if(els.skipCount){ els.skipCount.innerText = String(Math.max(0, state.skipsRemaining)); }
+    if(els.btnSkip){ els.btnSkip.disabled = !state.isReadyToAnswer || state.isPaused || state.skipsRemaining <= 0; }
   }
 
   function updateHUD(){
@@ -408,6 +435,7 @@
       els.progresoNivelFill.style.width = `${(state.questionCount/lvl.questions)*100}%`;
     }
     updateHearts();
+    updateSkipCounter();
   }
 
 
@@ -481,6 +509,7 @@
   }
 
   function beginQuestionInteraction(){
+    if(state.isPaused){ return; }
     state.isReadyToAnswer = true;
     setGameControlsEnabled(true);
     els.panelOperacion.classList.remove('disabled-panel');
@@ -526,6 +555,7 @@
     els.u1.innerText = a%10;
     els.d2.innerText = Math.floor(b/10) || '';
     els.u2.innerText = b%10;
+    els.panelOperacion.classList.remove('hidden');
     setDefaultInput();
     state.currentMetrics = createQuestionMetrics();
 
@@ -542,6 +572,7 @@
     if(state.levelIndex !== null){
       syncPresence({ currentQuestion: currentQuestionLabel, currentResponseDraft: '', lastExpectedAnswer: currentAnswer }).catch(()=>{});
     }
+    updateSkipCounter();
   }
 
   function scheduleNextQuestion(delayMs = 3000){
@@ -551,6 +582,36 @@
     sNextQuestion.currentTime = 0;
     sNextQuestion.play().catch(()=>{});
     setTimeout(()=> generateQuestion(), delayMs);
+  }
+
+  function syncPausePresence(isPaused){
+    syncPresence({
+      isPaused,
+      currentQuestion: isPaused ? 'Pause' : currentQuestionLabel,
+      currentResponseDraft: ''
+    }).catch(()=>{});
+  }
+
+  function pauseGame(){
+    if(!state.isReadyToAnswer || state.isPaused || state.levelIndex === null){ return; }
+    state.isPaused = true;
+    state.isReadyToAnswer = false;
+    clearInterval(state.timer);
+    setGameControlsEnabled(false);
+    els.panelOperacion.classList.add('hidden');
+    els.pauseOverlay && els.pauseOverlay.classList.remove('hidden');
+    els.mensaje.innerText = '⏸ Juego en pausa.';
+    syncPausePresence(true);
+    updateSkipCounter();
+  }
+
+  function resumeGame(){
+    if(!state.isPaused){ return; }
+    state.isPaused = false;
+    els.pauseOverlay && els.pauseOverlay.classList.add('hidden');
+    els.mensaje.innerText = '▶ Continuando con un nuevo reactivo.';
+    syncPausePresence(false);
+    scheduleNextQuestion(200);
   }
 
   function scoreResponse(correct, difficultyScore, totalTimeSec, writeTimeSec, editsCount, opType){
@@ -780,6 +841,9 @@
       clearInterval(state.timer);
       els.mensaje.innerText = '💥 Te quedaste sin vidas. Elige categoría para volver a empezar.';
       state.hasStarted = false;
+      state.isPaused = false;
+      if(els.pauseOverlay) els.pauseOverlay.classList.add('hidden');
+      els.panelOperacion.classList.remove('hidden');
       els.gameArea.classList.add('hidden');
       els.categoryMenu.classList.remove('hidden');
       state.lives = config.maxLives;
@@ -830,6 +894,9 @@
       if(state.questionCount >= getCurrentLevel().questions){
         saveLocal();
         state.hasStarted = false;
+        state.isPaused = false;
+        if(els.pauseOverlay) els.pauseOverlay.classList.add('hidden');
+        els.panelOperacion.classList.remove('hidden');
         state.questionCount = 0;
         state.levelIndex = null;
         els.gameArea.classList.add('hidden');
@@ -853,8 +920,21 @@
       els.mensaje.innerText = 'Presiona "Iniciar" antes de saltar.';
       return;
     }
+    if(state.skipsRemaining <= 0){
+      els.mensaje.innerText = 'Ya usaste los 2 saltos permitidos en esta categoría.';
+      updateSkipCounter();
+      return;
+    }
     clearInterval(state.timer);
-    applyWrongAnswer('⏭ Pregunta saltada, una oportunidad menos.', true, false);
+    state.skipsRemaining -= 1;
+    state.isReadyToAnswer = false;
+    els.mensaje.innerText = `⏭ Reactivo omitido sin penalización. Te quedan ${state.skipsRemaining} saltos.`;
+    setGameControlsEnabled(false);
+    els.panelOperacion.classList.add('disabled-panel');
+    setDefaultInput();
+    syncPresence({ currentQuestion: 'Reactivo omitido', currentResponseDraft: '', skipsRemaining: state.skipsRemaining }).catch(()=>{});
+    updateSkipCounter();
+    scheduleNextQuestion(700);
   }
 
   function chooseCategory(levelIndex){
@@ -863,13 +943,19 @@
     state.attemptsLeft = getCurrentLevel().attempts;
     state.lives = config.maxLives;
     state.hasStarted = false;
+    state.isPaused = false;
+    state.skipsRemaining = 2;
+    state.sessionId = buildSessionId(getCurrentLevel().type);
+    state.sessionStartedAt = Date.now();
     state.currentCategory = { attempts:0, correct:0, scoreSum:0 };
     const t = getCurrentLevel().type;
     if(!state.categoryAggregates[t]){ state.categoryAggregates[t] = { attempts:0, correct:0, wrong:0, highScore:0, scoreSum:0 }; }
     els.categoryMenu.classList.add('hidden');
+    if(els.pauseOverlay) els.pauseOverlay.classList.add('hidden');
+    els.panelOperacion.classList.remove('hidden');
     els.gameArea.classList.remove('hidden');
     els.mensaje.innerText = `Elegiste ${getCurrentLevel().name}. Presiona Iniciar para comenzar.`;
-    syncPresence({ currentCategory: getCurrentLevel().name, currentStreak: state.stats.correctStreak, currentQuestion: currentQuestionLabel, currentResponseDraft: '' }).catch(()=>{});
+    syncPresence({ currentCategory: getCurrentLevel().name, currentStreak: state.stats.correctStreak, currentQuestion: currentQuestionLabel, currentResponseDraft: '', skipsRemaining: state.skipsRemaining }).catch(()=>{});
     generateQuestion();
   }
 
@@ -939,12 +1025,13 @@
         window.FirebasePlaceholder.setActivePlayer(selected);
         try { await window.FirebasePlaceholder.logLogin({ playerId: selected }); }
         catch(error){ console.warn('No se pudo registrar login en Firestore.', error); }
-        await syncPresence({ currentStreak: state.stats.correctStreak });
+        await syncPresence({ currentStreak: state.stats.correctStreak, skipsRemaining: state.skipsRemaining });
       }
 
       els.overlay.classList.add('hidden');
       els.mensaje.innerText = `Hola ${selected}, selecciona una categoría para iniciar.`;
       await refreshPlayerInsights(selected);
+      await refreshRemoteMissions(selected);
     });
 
     await syncPlayers();
@@ -953,7 +1040,9 @@
 
   els.btn.addEventListener('click', verifyAnswer);
   els.btnSkip.addEventListener('click', skipQuestion);
+  els.btnPause && els.btnPause.addEventListener('click', pauseGame);
   els.btnIniciar.addEventListener('click', startCountdown);
+  els.btnResumePause && els.btnResumePause.addEventListener('click', resumeGame);
   document.querySelectorAll('.category-btn').forEach((btn)=> btn.addEventListener('click', ()=> chooseCategory(Number(btn.dataset.level))));
   els.btnFinalContinue && els.btnFinalContinue.addEventListener('click', ()=> els.finalOverlay.classList.add('hidden'));
   els.btnMissionContinue && els.btnMissionContinue.addEventListener('click', ()=> els.missionCongratsOverlay.classList.add('hidden'));
@@ -968,7 +1057,7 @@
   state.playerId = cachedPlayerId;
 
   setupInputTracking();
-  state.sessionId = buildSessionId();
+  state.sessionId = null;
   pickDailyMissions();
   updateHUD();
   updateMedalSummary();
@@ -980,7 +1069,8 @@
       window.FirebasePlaceholder.setActivePlayer(state.playerId);
     }
     await refreshPlayerInsights(state.playerId);
-    await syncPresence({ currentStreak: state.stats.correctStreak });
+    await refreshRemoteMissions(state.playerId);
+    await syncPresence({ currentStreak: state.stats.correctStreak, skipsRemaining: state.skipsRemaining });
     els.mensaje.innerText = `Hola ${state.playerId}, selecciona una categoría para iniciar.`;
   };
 
@@ -988,7 +1078,7 @@
 
   document.addEventListener('visibilitychange', ()=>{
     if(!document.hidden && state.playerId && state.sessionId && state.levelIndex !== null){
-      syncPresence({ currentStreak: state.stats.correctStreak }).catch(()=>{});
+      syncPresence({ currentStreak: state.stats.correctStreak, skipsRemaining: state.skipsRemaining }).catch(()=>{});
     }
   });
 

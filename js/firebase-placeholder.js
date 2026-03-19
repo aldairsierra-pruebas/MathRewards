@@ -11,7 +11,9 @@ import {
   serverTimestamp,
   addDoc,
   limit,
-  arrayUnion
+  arrayUnion,
+  increment,
+  deleteDoc
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -360,40 +362,61 @@ async function saveAttempt(payload) {
     lastPlayedAt: serverTimestamp()
   }, { merge: true });
 
-  const problemLog = {
-    problema: payload.question || '',
-    respuestaUsuario: payload.userAnswer ?? '',
-    respuestaEsperada: payload.expectedAnswer ?? '',
-    tiempoTotalMs: payload.totalTimeMs || payload.timeMs || 0,
-    tiempoPrimerCaracterMs: payload.thinkTimeMs || 0,
-    tiempoEscrituraMs: payload.writeTimeMs || 0,
-    clientDate
-  };
+  const dayRef = doc(db, 'players', playerId, 'stats_by_day', dayId);
+  const daySnap = await getDoc(dayRef);
+  const dayData = daySnap.exists() ? daySnap.data() : {};
+  const categories = dayData.categories || {};
+  const existingCategory = categories[mode] || {};
+  const nextCategoryAttempts = Number(existingCategory.attempts || 0) + 1;
+  const nextCategoryCorrect = Number(existingCategory.correct || 0) + (payload.isCorrect ? 1 : 0);
+  const nextCategoryWrong = Number(existingCategory.wrong || 0) + (payload.isCorrect ? 0 : 1);
+  const nextCategoryScoreSum = Number(existingCategory.scoreSum || 0) + Number(payload.responseScore || 0);
+  const nextCategoryHighScore = Math.max(Number(existingCategory.highScore || 0), Number(payload.responseScore || 0));
+  const sessionMap = dayData.sessions || {};
+  const existingSession = sessionMap[sessionId] || {};
+  const nextSessionAttempts = Number(existingSession.attempts || 0) + 1;
+  const nextSessionCorrect = Number(existingSession.correct || 0) + (payload.isCorrect ? 1 : 0);
+  const nextSessionWrong = Number(existingSession.wrong || 0) + (payload.isCorrect ? 0 : 1);
+  const nextSessionTimeMs = Number(existingSession.totalTimeMs || 0) + Number(payload.totalTimeMs || payload.timeMs || 0);
 
-  const resumenHora = {
-    resumen: {
-      intentos: payload.totalAttemptsCategory || 0,
-      correctas: payload.correctCategory || 0,
-      erroneas: payload.wrongCategory || 0,
-      scoreAlto: payload.highScoreCategory || 0,
-      scorePromedio: payload.avgResponseScoreCategory || 0
-    },
-    categoria: categoryEs,
+  await setDoc(dayRef, {
+    date: dayId,
     updatedAt: serverTimestamp(),
-    updatedClientDate: clientDate
-  };
-
-  if (payload.isCorrect) {
-    resumenHora.correctas = arrayUnion(problemLog);
-  } else {
-    resumenHora.erroneas = arrayUnion(problemLog);
-  }
-
-  await setDoc(
-    doc(db, 'players', playerId, 'stats', 'summary', 'by_day', dayId, 'categorias', categoryEs, 'by_start_hour', startHourId),
-    resumenHora,
-    { merge: true }
-  );
+    updatedClientDate: clientDate,
+    totalAttempts: increment(1),
+    totalCorrect: increment(payload.isCorrect ? 1 : 0),
+    totalWrong: increment(payload.isCorrect ? 0 : 1),
+    totalTimeMs: increment(Number(payload.totalTimeMs || payload.timeMs || 0)),
+    rankPoints: Number(payload.points || 0),
+    lastSessionId: sessionId,
+    categories: {
+      ...categories,
+      [mode]: {
+        attempts: nextCategoryAttempts,
+        correct: nextCategoryCorrect,
+        wrong: nextCategoryWrong,
+        highScore: nextCategoryHighScore,
+        scoreSum: nextCategoryScoreSum,
+        avgResponseScore: nextCategoryAttempts > 0 ? Math.round(nextCategoryScoreSum / nextCategoryAttempts) : 0,
+        lastSessionId: sessionId,
+        lastSessionAt: clientDate,
+        label: categoryEs
+      }
+    },
+    sessions: {
+      ...sessionMap,
+      [sessionId]: {
+        mode,
+        label: categoryEs,
+        startedAt: existingSession.startedAt || clientDate,
+        updatedAt: clientDate,
+        attempts: nextSessionAttempts,
+        correct: nextSessionCorrect,
+        wrong: nextSessionWrong,
+        totalTimeMs: nextSessionTimeMs
+      }
+    }
+  }, { merge: true });
   const recentAttempts = Number(payload.recentAttempts || Math.min(payload.totalAttempts || 0, 10));
   const recentCorrect = Number(payload.recentCorrect || 0);
   const recentTimeMs = Number(payload.recentTimeMs || 0);
@@ -444,29 +467,23 @@ async function getPlayerInsights(playerId) {
   const summary = summarySnap.exists() ? summarySnap.data() : {};
 
   const byCategory = { add: {}, sub: {}, mul: {}, challenge: {} };
-  const daySnap = await getDocs(query(collection(db, 'players', target, 'stats', 'summary', 'by_day'), orderBy('__name__', 'desc'), limit(7)));
+  const daySnap = await getDocs(query(collection(db, 'players', target, 'stats_by_day'), orderBy('__name__', 'desc'), limit(7)));
 
   for (const dayDoc of daySnap.docs) {
-    const catSnap = await getDocs(collection(db, 'players', target, 'stats', 'summary', 'by_day', dayDoc.id, 'categorias'));
-    for (const catDoc of catSnap.docs) {
-      const mode = fromSpanishCategory(catDoc.id);
+    const categories = (dayDoc.data() || {}).categories || {};
+    Object.entries(categories).forEach(([mode, data]) => {
       if (!byCategory[mode]) byCategory[mode] = { attempts: 0, correct: 0, wrong: 0, highScore: 0, avgResponseScore: 0 };
-
-      const hourSnap = await getDocs(collection(db, 'players', target, 'stats', 'summary', 'by_day', dayDoc.id, 'categorias', catDoc.id, 'by_start_hour'));
-      hourSnap.forEach((hourDoc) => {
-        const r = (hourDoc.data() || {}).resumen || {};
-        const attempts = Number(r.intentos || 0);
-        const correct = Number(r.correctas || 0);
-        const wrong = Number(r.erroneas || 0);
-        const highScore = Number(r.scoreAlto || 0);
-        const avgResponseScore = Number(r.scorePromedio || 0);
-        byCategory[mode].attempts = Number(byCategory[mode].attempts || 0) + attempts;
-        byCategory[mode].correct = Number(byCategory[mode].correct || 0) + correct;
-        byCategory[mode].wrong = Number(byCategory[mode].wrong || 0) + wrong;
-        byCategory[mode].highScore = Math.max(Number(byCategory[mode].highScore || 0), highScore);
-        byCategory[mode].weightedResponseScoreSum = Number(byCategory[mode].weightedResponseScoreSum || 0) + (avgResponseScore * attempts);
-      });
-    }
+      const attempts = Number(data.attempts || 0);
+      const correct = Number(data.correct || 0);
+      const wrong = Number(data.wrong || 0);
+      const highScore = Number(data.highScore || 0);
+      const avgResponseScore = Number(data.avgResponseScore || 0);
+      byCategory[mode].attempts = Number(byCategory[mode].attempts || 0) + attempts;
+      byCategory[mode].correct = Number(byCategory[mode].correct || 0) + correct;
+      byCategory[mode].wrong = Number(byCategory[mode].wrong || 0) + wrong;
+      byCategory[mode].highScore = Math.max(Number(byCategory[mode].highScore || 0), highScore);
+      byCategory[mode].weightedResponseScoreSum = Number(byCategory[mode].weightedResponseScoreSum || 0) + (avgResponseScore * attempts);
+    });
   }
 
   Object.values(byCategory).forEach((item) => {
@@ -512,6 +529,72 @@ async function getPlayerInsights(playerId) {
 }
 
 
+async function listPlayerMissions(playerId) {
+  const target = playerId || getActivePlayer();
+  const now = Date.now();
+  const snap = await getDocs(collection(db, 'missions'));
+  return snap.docs
+    .map((d) => ({ missionId: d.id, ...d.data() }))
+    .filter((mission) => {
+      if (mission.active === false) return false;
+      const expiresAt = mission.expiresAt ? Date.parse(mission.expiresAt) : null;
+      if (expiresAt && !Number.isNaN(expiresAt) && expiresAt < now) return false;
+      const targets = Array.isArray(mission.targetPlayerIds) ? mission.targetPlayerIds : [];
+      return !targets.length || targets.includes(target);
+    })
+    .sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'es'));
+}
+
+async function listAdminMissions() {
+  const snap = await getDocs(collection(db, 'missions'));
+  return snap.docs.map((d) => ({ missionId: d.id, ...d.data() }));
+}
+
+async function saveAdminMission(payload) {
+  const missionId = payload.missionId || slugify(payload.title || 'mision');
+  await setDoc(doc(db, 'missions', missionId), {
+    missionId,
+    title: payload.title || '',
+    description: payload.description || '',
+    active: Boolean(payload.active),
+    targetPlayerIds: Array.isArray(payload.targetPlayerIds) ? payload.targetPlayerIds : [],
+    expiresAt: payload.expiresAt || '',
+    rewardCodeId: payload.rewardCodeId || '',
+    rewardLabel: payload.rewardLabel || '',
+    updatedAt: serverTimestamp(),
+    createdAt: payload.createdAt || serverTimestamp()
+  }, { merge: true });
+  return missionId;
+}
+
+async function deleteAdminMission(missionId) {
+  await deleteDoc(doc(db, 'missions', missionId));
+}
+
+async function listRewardCodes() {
+  const snap = await getDocs(collection(db, 'reward_codes'));
+  return snap.docs.map((d) => ({ codeId: d.id, ...d.data() }));
+}
+
+async function saveRewardCode(payload) {
+  const codeId = payload.codeId || slugify(payload.title || payload.codeValue || 'codigo');
+  await setDoc(doc(db, 'reward_codes', codeId), {
+    codeId,
+    title: payload.title || '',
+    codeValue: payload.codeValue || '',
+    active: Boolean(payload.active),
+    expiresAt: payload.expiresAt || '',
+    notes: payload.notes || '',
+    updatedAt: serverTimestamp(),
+    createdAt: payload.createdAt || serverTimestamp()
+  }, { merge: true });
+  return codeId;
+}
+
+async function deleteRewardCode(codeId) {
+  await deleteDoc(doc(db, 'reward_codes', codeId));
+}
+
 window.FirebasePlaceholder = {
   save,
   saveAttempt,
@@ -522,7 +605,14 @@ window.FirebasePlaceholder = {
   setActivePlayer,
   getActivePlayer,
   logLogin,
-  updatePlayerPresence
+  updatePlayerPresence,
+  listPlayerMissions,
+  listAdminMissions,
+  saveAdminMission,
+  deleteAdminMission,
+  listRewardCodes,
+  saveRewardCode,
+  deleteRewardCode
 };
 
 window.dispatchEvent(new CustomEvent('firebase-ready'));
