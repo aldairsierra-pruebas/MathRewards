@@ -68,12 +68,14 @@
       fast8Streak:0,
       turboTimes:[],
       correctByType:{ add:0, sub:0, mul:0 },
-      attemptsCount:0
+      attemptsCount:0,
+      bestStreak:0
     },
     activeMissions: [],
     currentCategory: { attempts:0, correct:0, scoreSum:0 },
     categoryAggregates: { add:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, sub:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, mul:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0} },
-    medalHistory: []
+    medalHistory: [],
+    presenceHeartbeatId:null
   };
 
   const sGood = new Audio('https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg');
@@ -238,7 +240,7 @@
       const labels = { add:'Sumas', sub:'Restas', mul:'Multiplicaciones' };
       const rows = Object.entries(byCat)
         .filter(([k])=>['add','sub','mul'].includes(k))
-        .map(([k,v])=>`${labels[k]}: ${v.correct || 0}/${v.attempts || 0} · HS ${v.highScore || 0}`);
+        .map(([k,v])=>`${labels[k]}: ${v.correct || 0}/${v.attempts || 0} · HS ${v.highScore || 0} · Avg ${v.avgResponseScore || 0}`);
       els.insByCategory.innerHTML = rows.length ? rows.map((r)=>`<div>${r}</div>`).join('') : 'Sin datos';
     }
 
@@ -274,6 +276,38 @@
   }
 
   function inferDeviceType(){ return ('ontouchstart' in window || navigator.maxTouchPoints > 0) ? 'touch' : 'keyboard'; }
+
+  async function syncPresence(extra = {}){
+    if(!window.FirebasePlaceholder || typeof window.FirebasePlaceholder.updatePlayerPresence !== 'function' || !state.playerId){ return; }
+    try{
+      const level = getCurrentLevel();
+      await window.FirebasePlaceholder.updatePlayerPresence({
+        playerId: state.playerId,
+        sessionId: state.sessionId,
+        currentCategory: level ? level.name : null,
+        isActive: Boolean(state.hasStarted || state.levelIndex !== null),
+        lastClientDate: nowIso(),
+        extra
+      });
+    }catch(error){
+      console.warn('No se pudo sincronizar presencia.', error);
+    }
+  }
+
+  function startPresenceHeartbeat(){
+    stopPresenceHeartbeat();
+    state.presenceHeartbeatId = setInterval(()=>{
+      if(document.hidden || !state.playerId || !state.sessionId || state.levelIndex === null){ return; }
+      syncPresence({ currentStreak: state.stats.correctStreak }).catch(()=>{});
+    }, 45000);
+  }
+
+  function stopPresenceHeartbeat(){
+    if(state.presenceHeartbeatId){
+      clearInterval(state.presenceHeartbeatId);
+      state.presenceHeartbeatId = null;
+    }
+  }
 
   function createQuestionMetrics(){
     return {
@@ -507,7 +541,12 @@
       correctCategory: state.categoryAggregates[lvl.type]?.correct || 0,
       wrongCategory: state.categoryAggregates[lvl.type]?.wrong || 0,
       highScoreCategory: state.categoryAggregates[lvl.type]?.highScore || 0,
-      avgResponseScoreCategory: (state.categoryAggregates[lvl.type]?.attempts || 0) > 0 ? Math.round((state.categoryAggregates[lvl.type].scoreSum || 0) / state.categoryAggregates[lvl.type].attempts) : 0
+      avgResponseScoreCategory: (state.categoryAggregates[lvl.type]?.attempts || 0) > 0 ? Math.round((state.categoryAggregates[lvl.type].scoreSum || 0) / state.categoryAggregates[lvl.type].attempts) : 0,
+      currentStreak: state.stats.correctStreak,
+      bestStreak: state.stats.bestStreak,
+      recentAttempts: Math.min((state.recentResults[lvl.type] || []).length, 10),
+      recentCorrect: (state.recentResults[lvl.type] || []).slice(-10).filter((item)=>item.correct).length,
+      recentTimeMs: (state.recentResults[lvl.type] || []).slice(-10).reduce((sum, item)=> sum + (item.totalTimeSec * 1000), 0)
     };
   }
 
@@ -522,6 +561,7 @@
       state.stats.correctByType[payload.mode] = (state.stats.correctByType[payload.mode] || 0) + 1;
       if((payload.totalTimeMs/1000) < 10){ state.stats.fast10Streak++; } else { state.stats.fast10Streak = 0; }
       if((payload.totalTimeMs/1000) < 8){ state.stats.fast8Streak++; } else { state.stats.fast8Streak = 0; }
+      state.stats.bestStreak = Math.max(state.stats.bestStreak, state.stats.correctStreak);
       state.stats.turboTimes.push(payload.totalTimeMs/1000);
       if(state.stats.turboTimes.length > 3){ state.stats.turboTimes.shift(); }
     } else {
@@ -550,6 +590,17 @@
 
     adjustDifficultyProfile(type);
     updateMissionProgress(payload);
+
+    syncPresence({
+      currentStreak: state.stats.correctStreak,
+      lastQuestion: payload.question,
+      lastAnswerCorrect: payload.isCorrect,
+      attemptsToday: payload.totalAttempts,
+      correctToday: payload.correct,
+      wrongToday: payload.wrong,
+      recentAccuracy: payload.recentAttempts ? Math.round((payload.recentCorrect / payload.recentAttempts) * 100) : 0,
+      avgResponseTimeMsRecent: payload.recentAttempts ? Math.round(payload.recentTimeMs / payload.recentAttempts) : 0
+    }).catch(()=>{});
   }
 
   function saveLocal(){
@@ -714,6 +765,7 @@
     els.categoryMenu.classList.add('hidden');
     els.gameArea.classList.remove('hidden');
     els.mensaje.innerText = `Elegiste ${getCurrentLevel().name}. Presiona Iniciar para comenzar.`;
+    syncPresence({ currentCategory: getCurrentLevel().name, currentStreak: state.stats.correctStreak }).catch(()=>{});
     generateQuestion();
   }
 
@@ -783,6 +835,7 @@
         window.FirebasePlaceholder.setActivePlayer(selected);
         try { await window.FirebasePlaceholder.logLogin({ playerId: selected }); }
         catch(error){ console.warn('No se pudo registrar login en Firestore.', error); }
+        await syncPresence({ currentStreak: state.stats.correctStreak });
       }
 
       els.overlay.classList.add('hidden');
@@ -823,8 +876,21 @@
       window.FirebasePlaceholder.setActivePlayer(state.playerId);
     }
     await refreshPlayerInsights(state.playerId);
+    await syncPresence({ currentStreak: state.stats.correctStreak });
     els.mensaje.innerText = `Hola ${state.playerId}, selecciona una categoría para iniciar.`;
   };
+
+  startPresenceHeartbeat();
+
+  document.addEventListener('visibilitychange', ()=>{
+    if(!document.hidden && state.playerId && state.sessionId && state.levelIndex !== null){
+      syncPresence({ currentStreak: state.stats.correctStreak }).catch(()=>{});
+    }
+  });
+
+  window.addEventListener('beforeunload', ()=>{
+    stopPresenceHeartbeat();
+  });
 
   syncSelectedPlayer();
   window.addEventListener('firebase-ready', syncSelectedPlayer);
