@@ -673,13 +673,23 @@
 
   function saveLocal(){
     if(window.AppStorage && typeof window.AppStorage.save === 'function'){
+      const level = getCurrentLevel();
       window.AppStorage.save({
         playerId: state.playerId,
+        sessionId: state.sessionId,
+        currentCategory: level ? level.name : null,
+        totalAttempts: state.totalAttempts,
+        totalCorrect: state.totalCorrect,
+        totalWrong: state.totalWrong,
+        totalTimeMs: Date.now() - state.sessionStartedAt,
+        currentStreak: state.stats.correctStreak,
+        bestStreak: state.stats.bestStreak,
         points: state.points,
         xp: state.xp,
         levelIndex: state.levelIndex,
         medals: state.medals,
         adaptive: state.perLevelAdaptiveOffset,
+        isActive: Boolean(state.hasStarted || state.levelIndex !== null),
         date: nowIso()
       });
     }
