@@ -76,10 +76,12 @@
               <div class="vidas-lateral" id="vidasUI" aria-label="Oportunidades restantes"></div>
             </div>
 
-            <div class="actions">
-              <button id="btnResponder">Responder</button>
-              <button id="btnSkip">Saltar</button>
+            <div class="actions actions-large">
+              <button id="btnResponder" class="action-primary">Responder</button>
+              <button id="btnPause" class="action-pause">Pausa</button>
+              <button id="btnSkip" class="action-skip">Saltar</button>
             </div>
+            <div class="skip-counter">Saltos restantes en esta categoría: <strong id="skipCount">2</strong></div>
           </section>
         </div>
       </section>
@@ -125,6 +127,14 @@
       <h2>🏅 Historial de medallas</h2>
       <div id="medalsHistoryList" class="medals-history">Sin medallas aún.</div>
       <button id="btnCloseMedals">Cerrar</button>
+    </div>
+  </div>
+
+  <div id="pauseOverlay" class="overlay hidden">
+    <div class="overlay-card final-card pause-card">
+      <h2>Pause</h2>
+      <p>La partida está en pausa. Al continuar se mostrará un nuevo reactivo.</p>
+      <button id="btnResumePause">Continuar</button>
     </div>
   </div>
 
