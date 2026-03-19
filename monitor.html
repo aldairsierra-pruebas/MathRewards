@@ -6,44 +6,53 @@
 <title>Panel individual de monitoreo</title>
 <link rel="icon" type="image/x-icon" href="favicon_Math.ico">
 <style>
-:root{--bg:#f4f7fb;--card:#fff;--line:#dbe4f1;--ink:#17304f;--muted:#6b7b91;--ok:#1f9d57;--okbg:#e9f8ef;--bad:#c0392b;--badbg:#fdeceb;--warn:#d97706;--warnbg:#fff5e8;--accent:#3157d5;--accent-soft:#eef2ff}
-*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--ink)}a{color:var(--accent)}button,input{font:inherit}
-.layout{display:grid;grid-template-columns:340px minmax(0,1fr);gap:18px;max-width:1660px;margin:0 auto;padding:18px}.card{background:var(--card);border-radius:18px;box-shadow:0 12px 30px rgba(24,42,71,.08);padding:16px}.stack{display:grid;gap:16px}.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.topbar h1,.topbar h2,.topbar h3{margin:0}.small{font-size:12px;color:var(--muted)}
-.player-list{display:grid;gap:10px}.player-btn{border:1px solid var(--line);border-radius:14px;background:#fff;padding:12px;text-align:left;cursor:pointer}.player-btn.active{border-color:var(--accent);background:var(--accent-soft)}.player-btn:hover{border-color:var(--accent)}
-.badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700}.badge.ok{background:var(--okbg);color:var(--ok)}.badge.bad{background:var(--badbg);color:var(--bad)}.badge.warn{background:var(--warnbg);color:var(--warn)}
-.hero{display:grid;grid-template-columns:1.4fr 1fr;gap:16px}.metrics-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.metric{border:1px solid var(--line);border-radius:14px;padding:12px;background:#fbfdff}.metric strong{display:block;font-size:1.45rem;margin-top:6px}
-.operation-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.op-card,.session-card{border:1px solid var(--line);border-radius:14px;padding:12px;background:#fbfdff;cursor:pointer}.op-card.active,.session-card.active{border-color:var(--accent);background:var(--accent-soft)}.op-card .label,.session-card .label{font-weight:700}.op-card .sub,.session-card .sub{font-size:12px;color:var(--muted);margin-top:6px}
-.list{display:grid;gap:10px}.item{border:1px solid var(--line);border-radius:14px;padding:12px;background:#fbfdff}.item.success{background:var(--okbg);border-color:#b7e2c6}.item.error{background:var(--badbg);border-color:#f0b8b2}.item.slow{box-shadow:inset 0 0 0 2px #ffd08a}
-.grid-attempts{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}.kpis{display:grid;gap:8px}.kpi-row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line)}.kpi-row:last-child{border-bottom:none}
-.section-title{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.chips{display:flex;flex-wrap:wrap;gap:8px}.chip{padding:5px 9px;border-radius:999px;background:var(--accent-soft);font-size:12px}.empty{color:var(--muted);font-style:italic}
+:root{--bg1:#6dd5ed;--bg2:#2193b0;--card:rgba(255,255,255,0.96);--ink:#07203a;--line:#cfe3f6;--muted:#56708d;--ok:#149954;--okbg:#e8fff1;--bad:#c64242;--badbg:#ffe9e9;--warn:#d97706;--warnbg:#fff1db;--accent:#1d63d8;--accent-soft:#eaf3ff;--gold:#ffd166;--gold-soft:#fff4c7;--shadow:0 14px 34px rgba(7,32,58,.18)}
+*{box-sizing:border-box}html,body{min-height:100%}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:linear-gradient(135deg,var(--bg1),var(--bg2));color:#fff}a{color:#fff;font-weight:700}button,input{font:inherit}
+.layout{display:grid;grid-template-columns:340px minmax(0,1fr);gap:18px;max-width:1660px;margin:0 auto;padding:18px}.stack{display:grid;gap:16px}.card{background:var(--card);color:var(--ink);border-radius:18px;box-shadow:var(--shadow);padding:16px;border:1px solid rgba(255,255,255,.35)}.card.hero-shell{padding:18px;background:linear-gradient(135deg,rgba(255,255,255,.98),rgba(233,244,255,.94))}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.topbar h1,.topbar h2,.topbar h3{margin:0}.small{font-size:12px;color:var(--muted)}
+.sidebar-title{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-radius:18px;background:linear-gradient(135deg,#ffd95c,#ffbe2f);color:#13233d;box-shadow:0 8px 0 rgba(0,0,0,.08)}.sidebar-title h1{font-size:1.45rem}.sidebar-title a{color:#13233d}
+.player-list{display:grid;gap:10px}.player-btn{border:2px solid transparent;border-radius:16px;background:#fff;padding:12px;text-align:left;cursor:pointer;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}.player-btn.active{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 8px 18px rgba(29,99,216,.15)}.player-btn:hover{border-color:var(--accent);transform:translateY(-1px)}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:700}.badge.ok{background:var(--okbg);color:var(--ok)}.badge.bad{background:var(--badbg);color:var(--bad)}.badge.warn{background:var(--warnbg);color:var(--warn)}
+.hero{display:grid;grid-template-columns:1.4fr 1fr;gap:16px}.metrics-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.metric{border:2px solid var(--line);border-radius:16px;padding:12px;background:#fbfdff;box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}.metric strong{display:block;font-size:1.45rem;margin-top:6px;color:#0f3156}
+.operation-cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.op-card,.session-card{border:2px solid var(--line);border-radius:16px;padding:12px;background:#fbfdff;cursor:pointer;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}.op-card:hover,.session-card:hover{transform:translateY(-1px);border-color:#9ec5ff}.op-card.active,.session-card.active{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 8px 20px rgba(29,99,216,.14)}.op-card .label,.session-card .label{font-weight:700}.op-card .sub,.session-card .sub{font-size:12px;color:var(--muted);margin-top:6px}
+.list{display:grid;gap:10px}.item{border:2px solid var(--line);border-radius:16px;padding:12px;background:#fbfdff}.item.success{background:var(--okbg);border-color:#b7e2c6}.item.error{background:var(--badbg);border-color:#f0b8b2}.item.slow{box-shadow:inset 0 0 0 2px #ffd08a}
+.grid-attempts{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}.kpis{display:grid;gap:8px}.kpi-row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line)}.kpi-row:last-child{border-bottom:none}
+.section-title{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.section-title h3,.section-title h2{margin:0}.chips{display:flex;flex-wrap:wrap;gap:8px}.chip{padding:6px 10px;border-radius:999px;background:var(--accent-soft);border:1px solid #bfd5ff;font-size:12px;color:#17437f}.empty{color:var(--muted);font-style:italic}
 .table{width:100%;border-collapse:collapse}.table th,.table td{padding:10px;border-bottom:1px solid var(--line);font-size:13px;text-align:left}.table th{color:var(--muted);font-size:12px;text-transform:uppercase}
-.actions-row,.manage-form{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.manage-form input{flex:1;min-width:120px;padding:10px 12px;border:1px solid var(--line);border-radius:12px}.btn{border:none;border-radius:12px;padding:10px 14px;cursor:pointer;font-weight:700}.btn.primary{background:var(--accent);color:#fff}.btn.warn{background:var(--warnbg);color:var(--warn);border:1px solid #f1c27d}.btn.danger{background:var(--badbg);color:var(--bad);border:1px solid #efb0a9}.btn.ghost{background:#fff;border:1px solid var(--line);color:var(--ink)}.inline-note{margin-top:8px;font-size:12px;color:var(--muted)}
-.live-box{display:grid;gap:10px;padding:14px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(135deg,#fbfdff,#f3f6ff)}.live-question{font-size:2rem;font-weight:700;text-align:center;letter-spacing:.04em}.live-answer{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.live-answer .metric strong{font-size:1.1rem}.session-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
-@media (max-width:1200px){.layout{grid-template-columns:1fr}.hero,.metrics-grid,.operation-cards{grid-template-columns:1fr 1fr}} @media (max-width:720px){.metrics-grid,.operation-cards,.hero,.live-answer{grid-template-columns:1fr}}
+.actions-row,.manage-form{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.manage-form input{flex:1;min-width:120px;padding:11px 12px;border:2px solid var(--line);border-radius:14px;background:#fff}.manage-form input:focus{outline:none;border-color:#94bcff;box-shadow:0 0 0 4px rgba(29,99,216,.12)}.btn{border:none;border-radius:14px;padding:10px 14px;cursor:pointer;font-weight:700;box-shadow:0 4px 0 rgba(0,0,0,.08)}.btn.primary{background:#7bff7b;color:#0c4b0c}.btn.warn{background:var(--warnbg);color:var(--warn);border:1px solid #f1c27d}.btn.danger{background:var(--badbg);color:var(--bad);border:1px solid #efb0a9}.btn.ghost{background:#fff7d1;border:2px solid var(--gold);color:#13233d}.inline-note{margin-top:8px;font-size:12px;color:var(--muted)}
+.live-box{display:grid;gap:10px;padding:14px;border:2px solid var(--line);border-radius:16px;background:linear-gradient(135deg,#fbfdff,#f3f6ff)}.live-question{font-size:2rem;font-weight:700;text-align:center;letter-spacing:.04em;color:#15365a}.live-answer{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.live-answer .metric strong{font-size:1.1rem}.session-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.collapsible-panel{padding:0;overflow:hidden}.collapsible-panel summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;list-style:none;padding:16px 18px;font-weight:800;color:#13233d;background:linear-gradient(135deg,#fff6d8,#eef6ff)}.collapsible-panel summary::-webkit-details-marker{display:none}.collapsible-panel summary::after{content:"▾";font-size:18px;color:#3157d5;transition:transform .2s ease}.collapsible-panel:not([open]) summary::after{transform:rotate(-90deg)}.collapsible-panel .panel-body{padding:0 18px 18px}.collapsible-panel.compact summary{padding:14px 16px}.summary-copy{display:grid;gap:4px}.summary-copy .small{color:#6b7b91}.panel-stack{display:grid;gap:16px}
+.dashboard-shell{display:grid;gap:16px}.hero-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}.hero-heading h2{margin:0;color:#123156}.hero-heading .small{margin-top:4px}.dashboard-empty{min-height:240px;display:grid;place-items:center;text-align:center;background:rgba(255,255,255,.95)}
+@media (max-width:1200px){.layout{grid-template-columns:1fr}.hero,.metrics-grid,.operation-cards{grid-template-columns:1fr 1fr}} @media (max-width:720px){.metrics-grid,.operation-cards,.hero,.live-answer{grid-template-columns:1fr}.sidebar-title,.topbar,.section-title,.hero-heading{flex-direction:column;align-items:flex-start}}
 </style>
 </head>
 <body>
 <div class="layout">
   <aside class="stack">
-    <div class="card">
-      <div class="topbar">
+    <div class="sidebar-title">
         <div>
           <h1>🧭 Panel individual</h1>
-          <div class="small">Selecciona un jugador para revisar su actividad, errores y resultados.</div>
+          <div class="small" style="color:#13233d;opacity:.8;">Selecciona un jugador para revisar su actividad, errores y resultados.</div>
         </div>
         <a href="index.html">Ir al juego</a>
       </div>
-      <div class="manage-form">
+
+    <details class="card collapsible-panel" open>
+      <summary><span class="summary-copy"><span>👥 Jugadores</span><span class="small">Alta, selección y eliminación de perfiles.</span></span></summary>
+      <div class="panel-body">      <div class="manage-form">
         <input id="newPlayerName" type="text" placeholder="Nuevo jugador" maxlength="40">
         <button id="btnAddPlayer" class="btn primary" type="button">Añadir</button>
       </div>
       <div class="inline-note">Puedes crear o eliminar jugadores directamente desde este monitor.</div>
       <div id="playerActionStatus" class="small" style="margin-top:8px;"></div>
       <div id="playerList" class="player-list" style="margin-top:12px;"></div>
-    </div>
-    <div class="card stack">
-      <div>
-        <h3 style="margin:0 0 8px;">🎯 Misiones</h3>
+      </div>
+    </details>
+    <details class="card collapsible-panel" open>
+      <summary><span class="summary-copy"><span>🎯 Misiones</span><span class="small">Administración de misiones por jugador o globales.</span></span></summary>
+      <div class="panel-body">
+        <div>
+          <h3 style="margin:0 0 8px;">🎯 Misiones</h3>
         <div class="manage-form">
           <input id="missionTitle" type="text" placeholder="Título misión" maxlength="80">
           <input id="missionExpiry" type="datetime-local">
@@ -58,12 +67,15 @@
         </div>
         <label class="small" style="display:flex;gap:8px;align-items:center;margin-top:8px;"><input id="missionActive" type="checkbox" checked> Activa</label>
       </div>
-      <div id="missionListAdmin" class="list"></div>
-    </div>
+        <div id="missionListAdmin" class="list" style="margin-top:12px;"></div>
+      </div>
+    </details>
 
-    <div class="card stack">
-      <div>
-        <h3 style="margin:0 0 8px;">🎁 Códigos</h3>
+    <details class="card collapsible-panel">
+      <summary><span class="summary-copy"><span>🎁 Códigos</span><span class="small">Gestión de premios y códigos de recompensa.</span></span></summary>
+      <div class="panel-body">
+        <div>
+          <h3 style="margin:0 0 8px;">🎁 Códigos</h3>
         <div class="manage-form">
           <input id="codeTitle" type="text" placeholder="Nombre código" maxlength="80">
           <input id="codeValue" type="text" placeholder="Código / Robux" maxlength="120">
@@ -77,12 +89,13 @@
         </div>
         <label class="small" style="display:flex;gap:8px;align-items:center;margin-top:8px;"><input id="codeActive" type="checkbox" checked> Activo</label>
       </div>
-      <div id="codeListAdmin" class="list"></div>
-    </div>
+        <div id="codeListAdmin" class="list" style="margin-top:12px;"></div>
+      </div>
+    </details>
   </aside>
 
   <main class="stack">
-    <div id="playerDashboard" class="card empty">Selecciona un jugador del panel izquierdo.</div>
+    <div id="playerDashboard" class="card dashboard-empty empty">Selecciona un jugador del panel izquierdo.</div>
   </main>
 </div>
 
@@ -178,7 +191,7 @@ function buildCategoryStats(attempts){
 }
 
 function renderPlayerDashboard(model){
-  if(!model?.player){ els.playerDashboard.innerHTML = 'Selecciona un jugador del panel izquierdo.'; return; }
+  if(!model?.player){ els.playerDashboard.className = 'card dashboard-empty empty'; els.playerDashboard.innerHTML = 'Selecciona un jugador del panel izquierdo.'; return; }
   model.snapshot = state.players.get(model.player.id)?.snapshot || model.snapshot || {};
   const snapshot = model.snapshot || {};
   const summary = model.summary || {};
@@ -204,115 +217,130 @@ function renderPlayerDashboard(model){
   const liveQuestion = snapshot.currentQuestion || snapshot.lastQuestion || 'Sin problema activo';
   const liveDraft = snapshot.currentResponseDraft ?? '';
 
+  els.playerDashboard.className = 'dashboard-shell';
   els.playerDashboard.innerHTML = `
-    <div class="hero">
-      <div class="card" style="padding:0;border:none;box-shadow:none;">
-        <div class="section-title">
-          <div>
-            <h2>${escapeHtml(model.player.displayName || model.player.id)}</h2>
-            <div class="small">Jugador: ${escapeHtml(model.player.id)} · Última actividad: ${fmtDate(snapshot.lastActivityAt || snapshot.lastClientDate)}</div>
+    <section class="card hero-shell">
+      <div class="hero-heading">
+        <div>
+          <h2>${escapeHtml(model.player.displayName || model.player.id)}</h2>
+          <div class="small">Jugador: ${escapeHtml(model.player.id)} · Última actividad: ${fmtDate(snapshot.lastActivityAt || snapshot.lastClientDate)}</div>
+        </div>
+        <span class="badge ${statusClass}">${status}</span>
+      </div>
+      <div class="hero">
+        <div>
+          <div class="metrics-grid">
+            <div class="metric"><span class="small">Intentos hoy</span><strong>${Number(snapshot.attemptsToday || summary.totalAttempts || 0)}</strong></div>
+            <div class="metric"><span class="small">Aciertos hoy</span><strong>${Number(snapshot.correctToday || summary.totalCorrect || 0)}</strong></div>
+            <div class="metric"><span class="small">Errores hoy</span><strong>${Number(snapshot.wrongToday || summary.totalWrong || 0)}</strong></div>
+            <div class="metric"><span class="small">Racha actual</span><strong>${Number(snapshot.currentStreak || summary.currentStreak || 0)}</strong></div>
+            <div class="metric"><span class="small">Tiempo reciente</span><strong>${Number(snapshot.avgResponseTimeMsRecent || 0)} ms</strong></div>
           </div>
-          <span class="badge ${statusClass}">${status}</span>
         </div>
-        <div class="metrics-grid">
-          <div class="metric"><span class="small">Intentos hoy</span><strong>${Number(snapshot.attemptsToday || summary.totalAttempts || 0)}</strong></div>
-          <div class="metric"><span class="small">Aciertos hoy</span><strong>${Number(snapshot.correctToday || summary.totalCorrect || 0)}</strong></div>
-          <div class="metric"><span class="small">Errores hoy</span><strong>${Number(snapshot.wrongToday || summary.totalWrong || 0)}</strong></div>
-          <div class="metric"><span class="small">Racha actual</span><strong>${Number(snapshot.currentStreak || summary.currentStreak || 0)}</strong></div>
-          <div class="metric"><span class="small">Tiempo reciente</span><strong>${Number(snapshot.avgResponseTimeMsRecent || 0)} ms</strong></div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="section-title"><h3>Datos clave</h3></div>
-        <div class="kpis">
-          <div class="kpi-row"><span>Puntaje/rank</span><strong>${Number(summary.rankPoints || snapshot.points || 0)}</strong></div>
-          <div class="kpi-row"><span>Precisión reciente</span><strong>${Number(snapshot.recentAccuracy || 0)}%</strong></div>
-          <div class="kpi-row"><span>Sesión actual</span><strong>${escapeHtml(snapshot.sessionId || '—')}</strong></div>
-          <div class="kpi-row"><span>Categoría actual</span><strong>${escapeHtml(humanCategory(snapshot.currentCategory))}</strong></div>
-          <div class="kpi-row"><span>Última respuesta</span><strong>${snapshot.lastAnswerCorrect === true ? '✅ Correcta' : snapshot.lastAnswerCorrect === false ? '❌ Incorrecta' : '—'}</strong></div>
-        </div>
-        <div class="actions-row" style="margin-top:14px;">
-          <button id="btnResetStats" class="btn warn" type="button">Reestablecer estadísticas</button>
+        <div class="card" style="margin:0;">
+          <div class="section-title"><h3>Datos clave</h3></div>
+          <div class="kpis">
+            <div class="kpi-row"><span>Puntaje/rank</span><strong>${Number(summary.rankPoints || snapshot.points || 0)}</strong></div>
+            <div class="kpi-row"><span>Precisión reciente</span><strong>${Number(snapshot.recentAccuracy || 0)}%</strong></div>
+            <div class="kpi-row"><span>Sesión actual</span><strong>${escapeHtml(snapshot.sessionId || '—')}</strong></div>
+            <div class="kpi-row"><span>Categoría actual</span><strong>${escapeHtml(humanCategory(snapshot.currentCategory))}</strong></div>
+            <div class="kpi-row"><span>Última respuesta</span><strong>${snapshot.lastAnswerCorrect === true ? '✅ Correcta' : snapshot.lastAnswerCorrect === false ? '❌ Incorrecta' : '—'}</strong></div>
+          </div>
+          <div class="actions-row" style="margin-top:14px;">
+            <button id="btnResetStats" class="btn warn" type="button">Reestablecer estadísticas</button>
+          </div>
         </div>
       </div>
-    </div>
+    </section>
 
-    <div class="card">
-      <div class="section-title"><h3>Ver en línea</h3><span class="small">Se actualiza cuando empieza una pregunta, escribe o responde.</span></div>
-      <div class="live-box">
-        <div class="small">Problema actual</div>
-        <div class="live-question">${escapeHtml(liveQuestion)}</div>
-        <div class="live-answer">
-          <div class="metric"><span class="small">Respuesta escrita</span><strong>${escapeHtml(liveDraft === '' ? '—' : liveDraft)}</strong></div>
-          <div class="metric"><span class="small">Esperada</span><strong>${escapeHtml(snapshot.lastExpectedAnswer ?? '—')}</strong></div>
-          <div class="metric"><span class="small">Última enviada</span><strong>${escapeHtml(snapshot.lastPlayerAnswer ?? '—')}</strong></div>
+    <details class="card collapsible-panel" open>
+      <summary><span class="summary-copy"><span>📡 Ver en línea</span><span class="small">Se actualiza cuando empieza una pregunta, escribe o responde.</span></span></summary>
+      <div class="panel-body">
+        <div class="live-box">
+          <div class="small">Problema actual</div>
+          <div class="live-question">${escapeHtml(liveQuestion)}</div>
+          <div class="live-answer">
+            <div class="metric"><span class="small">Respuesta escrita</span><strong>${escapeHtml(liveDraft === '' ? '—' : liveDraft)}</strong></div>
+            <div class="metric"><span class="small">Esperada</span><strong>${escapeHtml(snapshot.lastExpectedAnswer ?? '—')}</strong></div>
+            <div class="metric"><span class="small">Última enviada</span><strong>${escapeHtml(snapshot.lastPlayerAnswer ?? '—')}</strong></div>
+          </div>
         </div>
       </div>
-    </div>
+    </details>
 
-    <div class="card">
-      <div class="section-title"><h3>Resumen por operación</h3><span class="small">Ahora puedes ver todas las operaciones o filtrar por una categoría específica.</span></div>
-      <div class="operation-cards" id="operationCards">${['all','add','sub','mul','challenge'].map((key)=>{
-        const data = key === 'all'
-          ? attempts.reduce((acc, item)=>({ attempts:acc.attempts+1, correct:acc.correct + (item.isCorrect?1:0), wrong:acc.wrong + (item.isCorrect?0:1), slow:acc.slow + (isSlow(item)?1:0) }), {attempts:0,correct:0,wrong:0,slow:0})
-          : (categoryStats[key] || {attempts:0,correct:0,wrong:0,slow:0});
-        return `<button class="op-card ${opFilter===key?'active':''}" data-operation="${key}">
-          <div class="label">${key === 'all' ? 'Todas' : humanCategory(key)}</div>
-          <div class="sub">${data.correct}/${data.attempts} correctos · ${accuracy(data.correct, data.attempts)}%</div>
-          <div class="sub">Errores: ${data.wrong} · Lentos: ${data.slow}</div>
-        </button>`;
-      }).join('')}</div>
-    </div>
-
-    <div class="card">
-      <div class="section-title"><h3>Sesiones</h3><span class="small">Elige una sesión para que ese sea el evento/origen mostrado en la lista de operaciones.</span></div>
-      <div class="session-grid" id="sessionCards">
-        <button class="session-card ${sessionFilter==='all'?'active':''}" data-session-filter="all" type="button">
-          <div class="label">Todas las sesiones</div>
-          <div class="sub">${attempts.length} operaciones registradas</div>
-        </button>
-        ${sessions.length ? sessions.map((session)=>`<button class="session-card ${sessionFilter===session.id?'active':''}" data-session-filter="${session.id}" type="button">
-          <div class="label">${escapeHtml(humanCategory(session.mode))}</div>
-          <div class="sub">${fmtDate(session.clientDate)} · ${escapeHtml(session.id)}</div>
-          <div class="sub">Intentos ${Number(session.totalAttempts || 0)} · aciertos ${Number(session.correct || 0)} · errores ${Number(session.wrong || 0)}</div>
-        </button>`).join('') : '<div class="empty">Sin sesiones jugadas.</div>'}
+    <details class="card collapsible-panel" open>
+      <summary><span class="summary-copy"><span>📘 Resumen por operación</span><span class="small">Filtra por categoría para enfocar el análisis.</span></span></summary>
+      <div class="panel-body panel-stack">
+        <div class="operation-cards" id="operationCards">${['all','add','sub','mul','challenge'].map((key)=>{
+          const data = key === 'all'
+            ? attempts.reduce((acc, item)=>({ attempts:acc.attempts+1, correct:acc.correct + (item.isCorrect?1:0), wrong:acc.wrong + (item.isCorrect?0:1), slow:acc.slow + (isSlow(item)?1:0) }), {attempts:0,correct:0,wrong:0,slow:0})
+            : (categoryStats[key] || {attempts:0,correct:0,wrong:0,slow:0});
+          return `<button class="op-card ${opFilter===key?'active':''}" data-operation="${key}">
+            <div class="label">${key === 'all' ? 'Todas' : humanCategory(key)}</div>
+            <div class="sub">${data.correct}/${data.attempts} correctos · ${accuracy(data.correct, data.attempts)}%</div>
+            <div class="sub">Errores: ${data.wrong} · Lentos: ${data.slow}</div>
+          </button>`;
+        }).join('')}</div>
       </div>
-    </div>
+    </details>
 
-    <div class="card">
-      <div class="section-title"><h3>Operaciones contestadas</h3><span class="small">${selectedSession ? `Mostrando evento de la sesión ${escapeHtml(selectedSession.id)}.` : 'Mostrando todas las operaciones registradas.'}</span></div>
-      <div class="chips">${Object.entries(errorGroups).length ? Object.entries(errorGroups).map(([key,value])=>`<span class="chip">${escapeHtml(key)}: ${value} errores</span>`).join('') : '<span class="empty">Sin errores en este filtro.</span>'}</div>
-      <div class="grid-attempts" style="margin-top:12px;">${visibleAttempts.length ? visibleAttempts.map((attempt)=>{
-        const correct = Boolean(attempt.isCorrect);
-        const slow = isSlow(attempt);
-        const classes = ['item', correct ? 'success' : 'error', slow ? 'slow' : ''].join(' ');
-        return `<div class="${classes}">
-          <strong>${escapeHtml(attempt.question || 'Operación')}</strong>
-          <div class="small">Sesión: ${escapeHtml(attempt.sessionId || '—')} · Evento: ${escapeHtml(humanCategory(attempt.sessionMode || attempt.mode))}</div>
-          <div class="small">Resultado esperado: ${escapeHtml(attempt.expectedAnswer ?? '—')} · Respuesta: ${escapeHtml(attempt.userAnswer ?? '—')}</div>
-          <div class="small">${correct ? '✅ Correcto' : '❌ Erróneo'}${slow ? ' · ⏱ Lento' : ''}</div>
-          <div class="small">Tiempo total: ${Number(attempt.totalTimeMs || 0)} ms</div>
-          <div class="small">Primer input: ${Number(attempt.thinkTimeMs || 0)} ms · Escritura: ${Number(attempt.writeTimeMs || 0)} ms</div>
-          <div class="small">Categoría: ${escapeHtml(humanCategory(attempt.mode))} · Tipo: ${escapeHtml(humanCategory(attempt.operationType))}</div>
-          <div class="small">Fecha: ${fmtDate(attempt.clientDate || attempt.timestamp)}</div>
-        </div>`;
-      }).join('') : '<div class="empty">Sin problemas registrados en este filtro.</div>'}</div>
-    </div>
+    <details class="card collapsible-panel">
+      <summary><span class="summary-copy"><span>🗂️ Sesiones</span><span class="small">Elige una sesión para acotar el detalle mostrado.</span></span></summary>
+      <div class="panel-body">
+        <div class="session-grid" id="sessionCards">
+          <button class="session-card ${sessionFilter==='all'?'active':''}" data-session-filter="all" type="button">
+            <div class="label">Todas las sesiones</div>
+            <div class="sub">${attempts.length} operaciones registradas</div>
+          </button>
+          ${sessions.length ? sessions.map((session)=>`<button class="session-card ${sessionFilter===session.id?'active':''}" data-session-filter="${session.id}" type="button">
+            <div class="label">${escapeHtml(humanCategory(session.mode))}</div>
+            <div class="sub">${fmtDate(session.clientDate)} · ${escapeHtml(session.id)}</div>
+            <div class="sub">Intentos ${Number(session.totalAttempts || 0)} · aciertos ${Number(session.correct || 0)} · errores ${Number(session.wrong || 0)}</div>
+          </button>`).join('') : '<div class="empty">Sin sesiones jugadas.</div>'}
+        </div>
+      </div>
+    </details>
+
+    <details class="card collapsible-panel" open>
+      <summary><span class="summary-copy"><span>🧠 Operaciones contestadas</span><span class="small">${selectedSession ? `Mostrando evento de la sesión ${escapeHtml(selectedSession.id)}.` : 'Mostrando todas las operaciones registradas.'}</span></span></summary>
+      <div class="panel-body">
+        <div class="chips">${Object.entries(errorGroups).length ? Object.entries(errorGroups).map(([key,value])=>`<span class="chip">${escapeHtml(key)}: ${value} errores</span>`).join('') : '<span class="empty">Sin errores en este filtro.</span>'}</div>
+        <div class="grid-attempts" style="margin-top:12px;">${visibleAttempts.length ? visibleAttempts.map((attempt)=>{
+          const correct = Boolean(attempt.isCorrect);
+          const slow = isSlow(attempt);
+          const classes = ['item', correct ? 'success' : 'error', slow ? 'slow' : ''].join(' ');
+          return `<div class="${classes}">
+            <strong>${escapeHtml(attempt.question || 'Operación')}</strong>
+            <div class="small">Sesión: ${escapeHtml(attempt.sessionId || '—')} · Evento: ${escapeHtml(humanCategory(attempt.sessionMode || attempt.mode))}</div>
+            <div class="small">Resultado esperado: ${escapeHtml(attempt.expectedAnswer ?? '—')} · Respuesta: ${escapeHtml(attempt.userAnswer ?? '—')}</div>
+            <div class="small">${correct ? '✅ Correcto' : '❌ Erróneo'}${slow ? ' · ⏱ Lento' : ''}</div>
+            <div class="small">Tiempo total: ${Number(attempt.totalTimeMs || 0)} ms</div>
+            <div class="small">Primer input: ${Number(attempt.thinkTimeMs || 0)} ms · Escritura: ${Number(attempt.writeTimeMs || 0)} ms</div>
+            <div class="small">Categoría: ${escapeHtml(humanCategory(attempt.mode))} · Tipo: ${escapeHtml(humanCategory(attempt.operationType))}</div>
+            <div class="small">Fecha: ${fmtDate(attempt.clientDate || attempt.timestamp)}</div>
+          </div>`;
+        }).join('') : '<div class="empty">Sin problemas registrados en este filtro.</div>'}</div>
+      </div>
+    </details>
 
     <div class="hero">
-      <div class="card">
-        <div class="section-title"><h3>Misiones y logros guardados</h3></div>
-        <div class="list">${achievements.length ? achievements.map((achievement)=>`<div class="item"><strong>${escapeHtml(achievement.medal || '🏅')} ${escapeHtml(achievement.title || 'Logro')}</strong><div class="small">Tipo: ${escapeHtml(achievement.type || 'mission')} · Categoría: ${escapeHtml(humanCategory(achievement.category))}</div><div class="small">Fecha: ${fmtDate(achievement.clientDate || achievement.timestamp)}</div></div>`).join('') : '<div class="empty">Sin logros guardados.</div>'}</div>
-      </div>
-      <div class="card">
-        <div class="section-title"><h3>Estado del snapshot</h3></div>
-        <div class="kpis">
-          <div class="kpi-row"><span>Última pregunta visible</span><strong>${escapeHtml(snapshot.lastQuestion || '—')}</strong></div>
-          <div class="kpi-row"><span>Problema actual</span><strong>${escapeHtml(snapshot.currentQuestion || '—')}</strong></div>
-          <div class="kpi-row"><span>Borrador en vivo</span><strong>${escapeHtml(liveDraft === '' ? '—' : liveDraft)}</strong></div>
-          <div class="kpi-row"><span>Actualizado</span><strong>${fmtDate(snapshot.updatedAt || snapshot.lastActivityAt || snapshot.lastClientDate)}</strong></div>
+      <details class="card collapsible-panel" open>
+        <summary><span class="summary-copy"><span>🏅 Misiones y logros guardados</span><span class="small">Historial de medallas y misiones del jugador.</span></span></summary>
+        <div class="panel-body">
+          <div class="list">${achievements.length ? achievements.map((achievement)=>`<div class="item"><strong>${escapeHtml(achievement.medal || '🏅')} ${escapeHtml(achievement.title || 'Logro')}</strong><div class="small">Tipo: ${escapeHtml(achievement.type || 'mission')} · Categoría: ${escapeHtml(humanCategory(achievement.category))}</div><div class="small">Fecha: ${fmtDate(achievement.clientDate || achievement.timestamp)}</div></div>`).join('') : '<div class="empty">Sin logros guardados.</div>'}</div>
         </div>
-      </div>
+      </details>
+      <details class="card collapsible-panel">
+        <summary><span class="summary-copy"><span>🛰️ Estado del snapshot</span><span class="small">Último estado en vivo sincronizado desde el juego.</span></span></summary>
+        <div class="panel-body">
+          <div class="kpis">
+            <div class="kpi-row"><span>Última pregunta visible</span><strong>${escapeHtml(snapshot.lastQuestion || '—')}</strong></div>
+            <div class="kpi-row"><span>Problema actual</span><strong>${escapeHtml(snapshot.currentQuestion || '—')}</strong></div>
+            <div class="kpi-row"><span>Borrador en vivo</span><strong>${escapeHtml(liveDraft === '' ? '—' : liveDraft)}</strong></div>
+            <div class="kpi-row"><span>Actualizado</span><strong>${fmtDate(snapshot.updatedAt || snapshot.lastActivityAt || snapshot.lastClientDate)}</strong></div>
+          </div>
+        </div>
+      </details>
     </div>`;
 
   [...els.playerDashboard.querySelectorAll('[data-operation]')].forEach((btn)=> btn.addEventListener('click', ()=>{ model.operationFilter = btn.dataset.operation; renderPlayerDashboard(model); }));
