@@ -68,12 +68,12 @@ function makeSessionId() {
 }
 
 function toSpanishCategory(mode) {
-  const map = { add: 'Sumas', sub: 'Restas', mul: 'Multiplicaciones' };
+  const map = { add: 'Sumas', sub: 'Restas', mul: 'Multiplicaciones', challenge: 'Desafío' };
   return map[mode] || 'General';
 }
 
 function fromSpanishCategory(category) {
-  const map = { Sumas: 'add', Restas: 'sub', Multiplicaciones: 'mul' };
+  const map = { Sumas: 'add', Restas: 'sub', Multiplicaciones: 'mul', Desafio: 'challenge', 'Desafío': 'challenge' };
   return map[category] || 'general';
 }
 
@@ -213,6 +213,12 @@ async function logLogin({ playerId }) {
 async function save(path, data) {
   const playerId = getActivePlayer();
   const nowIso = new Date().toISOString();
+  const hasPlayableData = Number(data.totalAttempts || 0) > 0 || Number(data.totalCorrect || 0) > 0 || Number(data.totalWrong || 0) > 0 || Boolean(data.currentCategory) || Boolean(data.sessionId);
+
+  if (!hasPlayableData) {
+    return true;
+  }
+
   const sessionId = data.sessionId || makeSessionId();
 
   await setDoc(doc(db, 'players', playerId, 'sessions', sessionId), {
@@ -270,6 +276,7 @@ async function saveAchievement(payload) {
     source: payload.source || 'game',
     category: payload.category || 'general',
     points: payload.points || 0,
+    missionId: payload.missionId || '',
     timestamp: serverTimestamp(),
     clientDate
   }, { merge: true });
@@ -313,6 +320,7 @@ async function saveAttempt(payload) {
     difficultyLabel: payload.difficultyLabel || '',
     difficultyScore: payload.difficultyScore || 1,
     operationType: payload.operationType || mode,
+    challengeType: payload.challengeType || null,
     operands: payload.operands || [],
     responseScore: payload.responseScore || 0,
     editsCount: payload.editsCount || 0,
@@ -426,7 +434,7 @@ async function getPlayerInsights(playerId) {
   const summarySnap = await getDoc(doc(db, 'players', target, 'stats', 'summary'));
   const summary = summarySnap.exists() ? summarySnap.data() : {};
 
-  const byCategory = { add: {}, sub: {}, mul: {} };
+  const byCategory = { add: {}, sub: {}, mul: {}, challenge: {} };
   const daySnap = await getDocs(query(collection(db, 'players', target, 'stats', 'summary', 'by_day'), orderBy('__name__', 'desc'), limit(7)));
 
   for (const dayDoc of daySnap.docs) {
@@ -467,6 +475,7 @@ async function getPlayerInsights(playerId) {
 
   sessionsSnap.forEach((docSnap)=>{
     const data = docSnap.data() || {};
+    if (Number(data.totalAttempts || 0) <= 0) return;
     const clientDate = data.clientDate ? new Date(data.clientDate).getTime() : 0;
     const points = Number(data.rankPoints || data.points || 0);
     if(clientDate >= weekAgo){
