@@ -213,7 +213,15 @@ async function logLogin({ playerId }) {
 async function save(path, data) {
   const playerId = getActivePlayer();
   const nowIso = new Date().toISOString();
-  const hasPlayableData = Number(data.totalAttempts || 0) > 0 || Number(data.totalCorrect || 0) > 0 || Number(data.totalWrong || 0) > 0 || Boolean(data.currentCategory) || Boolean(data.sessionId);
+  const hasPlayableData = [
+    Number(data.totalAttempts || 0),
+    Number(data.totalCorrect || 0),
+    Number(data.totalWrong || 0),
+    Number(data.totalTimeMs || 0),
+    Number(data.currentStreak || 0),
+    Number(data.bestStreak || 0),
+    Number(data.points || 0)
+  ].some((value) => value > 0) || Boolean(data.currentCategory) || Boolean(data.sessionId);
 
   if (!hasPlayableData) {
     return true;
