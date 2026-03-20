@@ -4,6 +4,8 @@ body{font-family:Arial,Helvetica,sans-serif;margin:0;min-height:100vh;background
 .container{max-width:1180px;margin:20px auto;padding:12px}
 .hud{background:linear-gradient(135deg,#ffd95c,#ffbe2f);color:#13233d;padding:12px;border-radius:12px}
 .hud h1{margin:0}
+.hud-top{display:flex;justify-content:flex-start;align-items:flex-start;gap:12px}
+.player-badge-top{display:inline-flex;align-items:center;gap:8px;margin-top:10px;padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.82);color:#103b67;font-weight:800;border:2px solid rgba(16,59,103,.12)}
 .stats{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-weight:800}
 .main{display:grid;grid-template-columns:1fr;gap:14px;margin-top:14px}
 @media (min-width:1080px){.main{grid-template-columns:1fr 340px;align-items:start}}
@@ -44,8 +46,9 @@ button{background:#ffd166;border-radius:10px;padding:8px 14px;font-weight:800;bo
 .action-pause{background:#d9ecff;color:#103b67}
 .action-skip{background:#ffe1e1;color:#7a1818}
 .skip-counter{margin-top:12px;text-align:center;font-weight:800;font-size:18px;color:#103b67;background:#eef6ff;border:2px dashed #7db6ff;border-radius:14px;padding:10px 12px}
-.start-wrap{display:flex;align-items:center;gap:10px;margin-top:10px}
+.start-wrap{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
 .btn-iniciar{background:#7bff7b;color:#0c4b0c}
+.btn-abort{background:#ffe1e1;color:#7a1818;border:2px solid #f6aaaa}
 .countdown{min-height:36px;min-width:60px;font-size:32px;font-weight:900;color:#ff7f11;text-align:center}
 .countdown-pop{animation:pop .5s ease}
 @keyframes pop{0%{transform:scale(.4);opacity:0}100%{transform:scale(1);opacity:1}}

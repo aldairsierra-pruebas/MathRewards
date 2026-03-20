@@ -18,7 +18,7 @@
 .list{display:grid;gap:10px}.item{border:2px solid var(--line);border-radius:16px;padding:12px;background:#fbfdff}.item.success{background:var(--okbg);border-color:#b7e2c6}.item.error{background:var(--badbg);border-color:#f0b8b2}.item.slow{box-shadow:inset 0 0 0 2px #ffd08a}
 .grid-attempts{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}.kpis{display:grid;gap:8px}.kpi-row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line)}.kpi-row:last-child{border-bottom:none}
 .section-title{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.section-title h3,.section-title h2{margin:0}.chips{display:flex;flex-wrap:wrap;gap:8px}.chip{padding:6px 10px;border-radius:999px;background:var(--accent-soft);border:1px solid #bfd5ff;font-size:12px;color:#17437f}.empty{color:var(--muted);font-style:italic}
-.table{width:100%;border-collapse:collapse}.table th,.table td{padding:10px;border-bottom:1px solid var(--line);font-size:13px;text-align:left}.table th{color:var(--muted);font-size:12px;text-transform:uppercase}
+.table{width:100%;border-collapse:collapse}.table th,.table td{padding:10px;border-bottom:1px solid var(--line);font-size:13px;text-align:left}.table th{color:var(--muted);font-size:12px;text-transform:uppercase}.digest-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:16px}.digest-cards{display:grid;gap:12px}.digest-card{border:2px solid var(--line);border-radius:16px;padding:14px;background:#fbfdff}.digest-card.good{background:var(--okbg);border-color:#b7e2c6}.digest-card.attention{background:var(--warnbg);border-color:#f1c27d}.digest-list{margin:8px 0 0;padding-left:18px;color:#173150}.digest-list li{margin-bottom:6px}.compare-bars{display:grid;gap:10px}.compare-row{display:grid;gap:6px}.compare-track{height:12px;background:#e7eef9;border-radius:999px;overflow:hidden}.compare-fill{height:100%;border-radius:999px}.compare-fill.good{background:linear-gradient(90deg,#28c76f,#0f9f57)}.compare-fill.warn{background:linear-gradient(90deg,#ffb020,#e67e22)}.compare-meta{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--muted)}
 .actions-row,.manage-form{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.manage-form input{flex:1;min-width:120px;padding:11px 12px;border:2px solid var(--line);border-radius:14px;background:#fff}.manage-form input:focus{outline:none;border-color:#94bcff;box-shadow:0 0 0 4px rgba(29,99,216,.12)}.btn{border:none;border-radius:14px;padding:10px 14px;cursor:pointer;font-weight:700;box-shadow:0 4px 0 rgba(0,0,0,.08)}.btn.primary{background:#7bff7b;color:#0c4b0c}.btn.warn{background:var(--warnbg);color:var(--warn);border:1px solid #f1c27d}.btn.danger{background:var(--badbg);color:var(--bad);border:1px solid #efb0a9}.btn.ghost{background:#fff7d1;border:2px solid var(--gold);color:#13233d}.inline-note{margin-top:8px;font-size:12px;color:var(--muted)}
 .live-box{display:grid;gap:10px;padding:14px;border:2px solid var(--line);border-radius:16px;background:linear-gradient(135deg,#fbfdff,#f3f6ff)}.live-question{font-size:2rem;font-weight:700;text-align:center;letter-spacing:.04em;color:#15365a}.live-answer{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.live-answer .metric strong{font-size:1.1rem}.session-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
 .collapsible-panel{padding:0;overflow:hidden}.collapsible-panel summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;list-style:none;padding:16px 18px;font-weight:800;color:#13233d;background:linear-gradient(135deg,#fff6d8,#eef6ff)}.collapsible-panel summary::-webkit-details-marker{display:none}.collapsible-panel summary::after{content:"▾";font-size:18px;color:#3157d5;transition:transform .2s ease}.collapsible-panel:not([open]) summary::after{transform:rotate(-90deg)}.collapsible-panel .panel-body{padding:0 18px 18px}.collapsible-panel.compact summary{padding:14px 16px}.summary-copy{display:grid;gap:4px}.summary-copy .small{color:#6b7b91}.panel-stack{display:grid;gap:16px}
@@ -190,6 +190,51 @@ function buildCategoryStats(attempts){
   return stats;
 }
 
+function pct(value, total){ return total ? Math.round((value / total) * 100) : 0; }
+function avgMs(items, field){ return items.length ? Math.round(items.reduce((sum, item)=> sum + Number(item?.[field] || 0), 0) / items.length) : 0; }
+function formatDurationMs(ms){ const value = Number(ms || 0); if(value >= 60000) return `${(value/60000).toFixed(1)} min`; if(value >= 1000) return `${(value/1000).toFixed(1)} s`; return `${value} ms`; }
+function buildDigestSummary(attempts, sessions){
+  const recentAttempts = attempts.slice(0, 40);
+  const dayMap = new Map();
+  recentAttempts.forEach((attempt)=>{
+    const date = tsToDate(attempt.clientDate || attempt.timestamp);
+    const key = date ? date.toISOString().slice(0,10) : 'Sin fecha';
+    if(!dayMap.has(key)) dayMap.set(key, { key, attempts:0, correct:0, wrong:0, slow:0, totalTimeMs:0 });
+    const bucket = dayMap.get(key);
+    bucket.attempts += 1;
+    bucket.correct += attempt.isCorrect ? 1 : 0;
+    bucket.wrong += attempt.isCorrect ? 0 : 1;
+    bucket.slow += isSlow(attempt) ? 1 : 0;
+    bucket.totalTimeMs += Number(attempt.totalTimeMs || 0);
+  });
+  const days = [...dayMap.values()].sort((a,b)=> String(b.key).localeCompare(String(a.key)));
+  const latestDay = days[0] || { attempts:0, correct:0, wrong:0, slow:0, totalTimeMs:0, key:'Sin datos' };
+  const previousDay = days[1] || null;
+  const recentSessions = sessions.slice().sort((a,b)=> new Date(b.clientDate || 0) - new Date(a.clientDate || 0)).slice(0, 8);
+  const latestSession = recentSessions[0] || null;
+  const previousSession = recentSessions[1] || null;
+  const strengths = [];
+  const focus = [];
+  const accuracyRate = pct(recentAttempts.filter((item)=> item.isCorrect).length, recentAttempts.length);
+  const slowRate = pct(recentAttempts.filter((item)=> isSlow(item)).length, recentAttempts.length);
+  if(accuracyRate >= 85) strengths.push(`Resuelve con buena precisión: ${accuracyRate}% de aciertos recientes.`);
+  if(avgMs(recentAttempts, 'totalTimeMs') > 0 && avgMs(recentAttempts, 'totalTimeMs') <= 9000) strengths.push(`Está respondiendo con agilidad: promedio de ${formatDurationMs(avgMs(recentAttempts, 'totalTimeMs'))}.`);
+  const categoryEntries = Object.entries(buildCategoryStats(recentAttempts)).filter(([, data])=> data.attempts > 0);
+  const bestCategory = categoryEntries.slice().sort((a,b)=> pct(b[1].correct,b[1].attempts) - pct(a[1].correct,a[1].attempts))[0];
+  const weakCategory = categoryEntries.slice().sort((a,b)=> pct(a[1].correct,a[1].attempts) - pct(b[1].correct,b[1].attempts))[0];
+  if(bestCategory) strengths.push(`Su mejor zona reciente es ${humanCategory(bestCategory[0])}: ${pct(bestCategory[1].correct, bestCategory[1].attempts)}% de aciertos.`);
+  if(accuracyRate < 75) focus.push(`Conviene reforzar exactitud: en sus ejercicios recientes falla ${100-accuracyRate}% de las veces.`);
+  if(slowRate >= 35) focus.push(`Necesita más fluidez: ${slowRate}% de respuestas fueron lentas.`);
+  if(weakCategory && pct(weakCategory[1].correct, weakCategory[1].attempts) < 70) focus.push(`Hay que trabajar más ${humanCategory(weakCategory[0])}: solo ${pct(weakCategory[1].correct, weakCategory[1].attempts)}% de aciertos.`);
+  if(!strengths.length) strengths.push('Aún falta más información para marcar una fortaleza clara, pero ya hay datos para seguir observando.');
+  if(!focus.length) focus.push('No se ve un foco rojo importante; conviene mantener la práctica constante para consolidar el avance.');
+  const comparisons = [
+    { label:'Hoy vs día anterior', current: latestDay ? pct(latestDay.correct, latestDay.attempts) : 0, previous: previousDay ? pct(previousDay.correct, previousDay.attempts) : 0, currentText: latestDay.attempts ? `${latestDay.correct}/${latestDay.attempts} correctas` : 'Sin datos', previousText: previousDay && previousDay.attempts ? `${previousDay.correct}/${previousDay.attempts} correctas` : 'Sin comparación' },
+    { label:'Sesión actual vs sesión previa', current: latestSession ? pct(Number(latestSession.correct || 0), Number(latestSession.totalAttempts || 0)) : 0, previous: previousSession ? pct(Number(previousSession.correct || 0), Number(previousSession.totalAttempts || 0)) : 0, currentText: latestSession ? `${Number(latestSession.correct || 0)}/${Number(latestSession.totalAttempts || 0)} correctas` : 'Sin datos', previousText: previousSession ? `${Number(previousSession.correct || 0)}/${Number(previousSession.totalAttempts || 0)} correctas` : 'Sin comparación' }
+  ];
+  return { latestDay, previousDay, latestSession, previousSession, strengths, focus, comparisons };
+}
+
 function renderPlayerDashboard(model){
   if(!model?.player){ els.playerDashboard.className = 'card dashboard-empty empty'; els.playerDashboard.innerHTML = 'Selecciona un jugador del panel izquierdo.'; return; }
   model.snapshot = state.players.get(model.player.id)?.snapshot || model.snapshot || {};
@@ -216,6 +261,7 @@ function renderPlayerDashboard(model){
   }, {});
   const liveQuestion = snapshot.currentQuestion || snapshot.lastQuestion || 'Sin problema activo';
   const liveDraft = snapshot.currentResponseDraft ?? '';
+  const digest = buildDigestSummary(attempts, sessions);
 
   els.playerDashboard.className = 'dashboard-shell';
   els.playerDashboard.innerHTML = `
@@ -297,6 +343,39 @@ function renderPlayerDashboard(model){
             <div class="sub">${fmtDate(session.clientDate)} · ${escapeHtml(session.id)}</div>
             <div class="sub">Intentos ${Number(session.totalAttempts || 0)} · aciertos ${Number(session.correct || 0)} · errores ${Number(session.wrong || 0)}</div>
           </button>`).join('') : '<div class="empty">Sin sesiones jugadas.</div>'}
+        </div>
+      </div>
+    </details>
+
+    <details class="card collapsible-panel" open>
+      <summary><span class="summary-copy"><span>🧾 Traducción para familia</span><span class="small">Resumen simple del avance, atraso y foco de trabajo.</span></span></summary>
+      <div class="panel-body">
+        <div class="digest-grid">
+          <div class="digest-cards">
+            <div class="digest-card good">
+              <strong>Lo que está haciendo muy bien</strong>
+              <ul class="digest-list">${digest.strengths.map((item)=>`<li>${escapeHtml(item)}</li>`).join('')}</ul>
+            </div>
+            <div class="digest-card attention">
+              <strong>Lo que conviene trabajar</strong>
+              <ul class="digest-list">${digest.focus.map((item)=>`<li>${escapeHtml(item)}</li>`).join('')}</ul>
+            </div>
+          </div>
+          <div class="digest-card">
+            <strong>Comparación rápida</strong>
+            <div class="compare-bars" style="margin-top:12px;">${digest.comparisons.map((item)=>{
+              const current = Number(item.current || 0);
+              const previous = Number(item.previous || 0);
+              const improved = current >= previous;
+              return `<div class="compare-row">
+                <div><strong>${escapeHtml(item.label)}</strong></div>
+                <div class="compare-meta"><span>Actual: ${current}% · ${escapeHtml(item.currentText)}</span><span>Previo: ${previous}% · ${escapeHtml(item.previousText)}</span></div>
+                <div class="compare-track"><div class="compare-fill ${improved ? 'good' : 'warn'}" style="width:${Math.max(current, 4)}%"></div></div>
+                <div class="small">${improved ? 'Va mejor o se mantiene respecto al registro anterior.' : 'Aquí se ve un pequeño retroceso; conviene reforzar esta parte.'}</div>
+              </div>`;
+            }).join('')}</div>
+            <div class="inline-note">Día más reciente: ${escapeHtml(digest.latestDay.key)} · ${digest.latestDay.correct}/${digest.latestDay.attempts} aciertos · tiempo promedio ${escapeHtml(formatDurationMs(digest.latestDay.attempts ? digest.latestDay.totalTimeMs / digest.latestDay.attempts : 0))}.</div>
+          </div>
         </div>
       </div>
     </details>
