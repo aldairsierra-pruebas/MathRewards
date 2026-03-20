@@ -95,7 +95,7 @@
 
   const els = {
     d1: document.getElementById('d1'), u1: document.getElementById('u1'), d2: document.getElementById('d2'), u2: document.getElementById('u2'), signo: document.getElementById('signo'),
-    respuesta: document.getElementById('respuesta'), btn: document.getElementById('btnResponder'), btnSkip: document.getElementById('btnSkip'), btnPause: document.getElementById('btnPause'), btnIniciar: document.getElementById('btnIniciar'),
+    respuesta: document.getElementById('respuesta'), btn: document.getElementById('btnResponder'), btnSkip: document.getElementById('btnSkip'), btnPause: document.getElementById('btnPause'), btnIniciar: document.getElementById('btnIniciar'), btnAbortCategory: document.getElementById('btnAbortCategory'),
     puntos: document.getElementById('puntos'), vidas: document.getElementById('vidas'), vidasUI: document.getElementById('vidasUI'), tiempo: document.getElementById('tiempo'),
     nivelTxt: document.getElementById('nivelTxt'), categoriaTxt: document.getElementById('categoriaTxt'), progresoNivelFill: document.getElementById('progresoNivelFill'),
     mensaje: document.getElementById('mensaje'), xpFill: document.getElementById('xpFill'), xpText: document.getElementById('xp'), xpTarget: document.getElementById('xpTarget'),
@@ -107,7 +107,7 @@
     insWeekPoints: document.getElementById('insWeekPoints'), insWeekCorrect: document.getElementById('insWeekCorrect'), insDailyHigh: document.getElementById('insDailyHigh'), insWeekSessions: document.getElementById('insWeekSessions'),
     insByCategory: document.getElementById('insByCategory'), insAchievements: document.getElementById('insAchievements'),
     btnOpenMedals: document.getElementById('btnOpenMedals'), medalCount: document.getElementById('medalCount'), medalsOverlay: document.getElementById('medalsOverlay'),
-    medalsHistoryList: document.getElementById('medalsHistoryList'), btnCloseMedals: document.getElementById('btnCloseMedals')
+    medalsHistoryList: document.getElementById('medalsHistoryList'), btnCloseMedals: document.getElementById('btnCloseMedals'), selectedPlayerBadge: document.getElementById('selectedPlayerBadge')
   };
 
   let currentAnswer = 0;
@@ -467,6 +467,52 @@
     if(els.btnSkip){ els.btnSkip.disabled = !state.isReadyToAnswer || state.isPaused || state.skipsRemaining <= 0; }
   }
 
+  function updateSelectedPlayerBadge(){
+    if(!els.selectedPlayerBadge) return;
+    els.selectedPlayerBadge.innerText = `👤 Jugador: ${state.playerId || '—'}`;
+  }
+
+  function resetCategoryView(message = 'Selecciona una categoría para iniciar.') {
+    clearInterval(state.timer);
+    state.hasStarted = false;
+    state.isPaused = false;
+    state.isReadyToAnswer = false;
+    state.levelIndex = null;
+    state.questionCount = 0;
+    state.time = 0;
+    state.lives = config.maxLives;
+    state.attemptsLeft = config.levels[0].attempts;
+    state.skipsRemaining = 2;
+    state.sessionId = null;
+    state.currentCategory = { attempts:0, correct:0, scoreSum:0 };
+    state.currentMetrics = null;
+    currentQuestionLabel = '';
+    currentAnswer = 0;
+    currentOperands = [0,0];
+    if(els.pauseOverlay) els.pauseOverlay.classList.add('hidden');
+    els.countdown.innerText = '';
+    els.panelOperacion.classList.remove('hidden');
+    els.panelOperacion.classList.add('disabled-panel');
+    els.gameArea.classList.add('hidden');
+    els.categoryMenu.classList.remove('hidden');
+    els.btnIniciar.style.display = 'inline-block';
+    els.btnIniciar.disabled = false;
+    setDefaultInput();
+    setGameControlsEnabled(false);
+    els.mensaje.innerText = message;
+    updateHUD();
+    saveLocal();
+    syncPresence({ currentCategory: null, currentQuestion: '', currentResponseDraft: '', isPaused:false, sessionAborted:true }).catch(()=>{});
+  }
+
+  function abortCurrentCategory(){
+    if(state.levelIndex === null){
+      els.mensaje.innerText = 'Primero elige una categoría.';
+      return;
+    }
+    resetCategoryView('Regresaste a categorías. Puedes elegir otra misión matemática.');
+  }
+
   function updateHUD(){
     const lvl = getCurrentLevel();
     els.puntos.innerText = state.points;
@@ -488,6 +534,7 @@
     }
     updateHearts();
     updateSkipCounter();
+    updateSelectedPlayerBadge();
   }
 
 
@@ -932,16 +979,7 @@
     if(state.lives <= 0){
       clearInterval(state.timer);
       els.mensaje.innerText = '💥 Te quedaste sin vidas. Elige categoría para volver a empezar.';
-      state.hasStarted = false;
-      state.isPaused = false;
-      if(els.pauseOverlay) els.pauseOverlay.classList.add('hidden');
-      els.panelOperacion.classList.remove('hidden');
-      els.gameArea.classList.add('hidden');
-      els.categoryMenu.classList.remove('hidden');
-      state.lives = config.maxLives;
-      state.attemptsLeft = config.levels[0].attempts;
-      updateHUD();
-      saveLocal();
+      resetCategoryView('💥 Te quedaste sin vidas. Elige categoría para volver a empezar.');
       return;
     }
 
@@ -984,16 +1022,7 @@
       els.mensaje.innerText = `✅ Correcto! +${gained} pts · Score ${attemptPayload.responseScore}`;
 
       if(state.questionCount >= getCurrentLevel().questions){
-        saveLocal();
-        state.hasStarted = false;
-        state.isPaused = false;
-        if(els.pauseOverlay) els.pauseOverlay.classList.add('hidden');
-        els.panelOperacion.classList.remove('hidden');
-        state.questionCount = 0;
-        state.levelIndex = null;
-        els.gameArea.classList.add('hidden');
-        els.categoryMenu.classList.remove('hidden');
-        updateHUD();
+        resetCategoryView('Categoría completada. Puedes elegir una nueva.');
         showFinalCategoryScreen();
         return;
       }
@@ -1114,6 +1143,7 @@
 
       state.playerId = selected;
       state.perLevelAdaptiveOffset = loadAdaptiveProfile(selected);
+      updateSelectedPlayerBadge();
       if(window.FirebasePlaceholder){
         window.FirebasePlaceholder.setActivePlayer(selected);
         try { await window.FirebasePlaceholder.logLogin({ playerId: selected }); }
@@ -1135,6 +1165,7 @@
   els.btnSkip.addEventListener('click', skipQuestion);
   els.btnPause && els.btnPause.addEventListener('click', pauseGame);
   els.btnIniciar.addEventListener('click', startCountdown);
+  els.btnAbortCategory && els.btnAbortCategory.addEventListener('click', abortCurrentCategory);
   els.btnResumePause && els.btnResumePause.addEventListener('click', resumeGame);
   document.querySelectorAll('.category-btn').forEach((btn)=> btn.addEventListener('click', ()=> chooseCategory(Number(btn.dataset.level))));
   els.btnFinalContinue && els.btnFinalContinue.addEventListener('click', ()=> els.finalOverlay.classList.add('hidden'));
@@ -1149,6 +1180,7 @@
   }
   state.playerId = cachedPlayerId;
   state.perLevelAdaptiveOffset = loadAdaptiveProfile(cachedPlayerId);
+  updateSelectedPlayerBadge();
 
   setupInputTracking();
   state.sessionId = null;

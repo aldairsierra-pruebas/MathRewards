@@ -10,7 +10,12 @@
 <body>
     <div class="container">
     <header class="hud">
-      <h1>🚀 Misiones Matemáticas</h1>
+      <div class="hud-top">
+        <div>
+          <h1>🚀 Misiones Matemáticas</h1>
+          <div id="selectedPlayerBadge" class="player-badge-top">👤 Jugador: --</div>
+        </div>
+      </div>
       <div class="stats">
         <div>⭐ Puntos: <span id="puntos">0</span></div>
         <div>❤️ Vidas: <span id="vidas">3</span></div>
@@ -60,6 +65,7 @@
 
             <div class="start-wrap">
               <button id="btnIniciar" class="btn-iniciar">Iniciar</button>
+              <button id="btnAbortCategory" class="btn-abort" type="button">Abortar categoría</button>
               <div id="countdown" class="countdown" aria-live="polite"></div>
             </div>
 
