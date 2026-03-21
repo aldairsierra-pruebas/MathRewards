@@ -772,7 +772,7 @@ function renderPlayerList(){
   const rows = [...state.players.values()].sort((a,b)=> String(a.player.displayName || a.player.id).localeCompare(String(b.player.displayName || b.player.id), 'es'));
   els.playerList.innerHTML = rows.length ? rows.map(({player,snapshot})=>{
     const [status,statusClass] = statusMeta(snapshot);
-    return `<div class="item" style="padding:10px;">
+    return `<div class="item player-entry">
       <button class="player-btn ${state.selectedPlayerId===player.id?'active':''}" data-player-id="${player.id}" style="width:100%;border:none;padding:0;background:transparent;">
         <div style="display:flex;justify-content:space-between;gap:8px;align-items:start;">
           <div><strong>${escapeHtml(player.displayName || player.id)}</strong><div class="small">${escapeHtml(player.id)}</div></div>
@@ -888,112 +888,129 @@ function renderPlayerDashboard(model){
         </div>
         <span class="badge ${statusClass}">${status}</span>
       </div>
-      <div class="hero">
-        <div>
-          <div class="metrics-grid">
-            <div class="metric"><span class="small">Intentos hoy</span><strong>${Number(snapshot.attemptsToday || summary.totalAttempts || 0)}</strong></div>
-            <div class="metric"><span class="small">Aciertos hoy</span><strong>${Number(snapshot.correctToday || summary.totalCorrect || 0)}</strong></div>
-            <div class="metric"><span class="small">Errores hoy</span><strong>${Number(snapshot.wrongToday || summary.totalWrong || 0)}</strong></div>
-            <div class="metric"><span class="small">Racha actual</span><strong>${Number(snapshot.currentStreak || summary.currentStreak || 0)}</strong></div>
-            <div class="metric"><span class="small">Tiempo reciente</span><strong>${Number(snapshot.avgResponseTimeMsRecent || 0)} ms</strong></div>
-          </div>
+      <div class="subtle-grid">
+        <div class="metrics-grid">
+          <div class="metric"><span class="small">Intentos hoy</span><strong>${Number(snapshot.attemptsToday || summary.totalAttempts || 0)}</strong></div>
+          <div class="metric"><span class="small">Aciertos hoy</span><strong>${Number(snapshot.correctToday || summary.totalCorrect || 0)}</strong></div>
+          <div class="metric"><span class="small">Errores hoy</span><strong>${Number(snapshot.wrongToday || summary.totalWrong || 0)}</strong></div>
+          <div class="metric"><span class="small">Racha actual</span><strong>${Number(snapshot.currentStreak || summary.currentStreak || 0)}</strong></div>
+          <div class="metric"><span class="small">Tiempo reciente</span><strong>${Number(snapshot.avgResponseTimeMsRecent || 0)} ms</strong></div>
         </div>
-        <div class="card" style="margin:0;">
-          <div class="section-title"><h3>Datos clave</h3></div>
-          <div class="kpis">
-            <div class="kpi-row"><span>Puntaje/rank</span><strong>${Number(summary.rankPoints || snapshot.points || 0)}</strong></div>
-            <div class="kpi-row"><span>Precisión reciente</span><strong>${Number(snapshot.recentAccuracy || 0)}%</strong></div>
-            <div class="kpi-row"><span>Sesión actual</span><strong>${escapeHtml(snapshot.sessionId || '—')}</strong></div>
-            <div class="kpi-row"><span>Categoría actual</span><strong>${escapeHtml(humanCategory(snapshot.currentCategory))}</strong></div>
-            <div class="kpi-row"><span>Última respuesta</span><strong>${snapshot.lastAnswerCorrect === true ? '✅ Correcta' : snapshot.lastAnswerCorrect === false ? '❌ Incorrecta' : '—'}</strong></div>
+        <div class="hero">
+          <div class="soft-surface">
+            <div class="section-title"><h3>Vista rápida</h3><button id="btnResetStats" class="btn warn" type="button">Reestablecer estadísticas</button></div>
+            <div class="kpis">
+              <div class="kpi-row"><span>Puntaje/rank</span><strong>${Number(summary.rankPoints || snapshot.points || 0)}</strong></div>
+              <div class="kpi-row"><span>Precisión reciente</span><strong>${Number(snapshot.recentAccuracy || 0)}%</strong></div>
+              <div class="kpi-row"><span>Sesión actual</span><strong>${escapeHtml(snapshot.sessionId || '—')}</strong></div>
+              <div class="kpi-row"><span>Categoría actual</span><strong>${escapeHtml(humanCategory(snapshot.currentCategory))}</strong></div>
+              <div class="kpi-row"><span>Última respuesta</span><strong>${snapshot.lastAnswerCorrect === true ? '✅ Correcta' : snapshot.lastAnswerCorrect === false ? '❌ Incorrecta' : '—'}</strong></div>
+            </div>
           </div>
-          <div class="actions-row" style="margin-top:14px;">
-            <button id="btnResetStats" class="btn warn" type="button">Reestablecer estadísticas</button>
+          <div class="live-box">
+            <div class="section-title"><h3>En línea ahora</h3><span class="small">Se actualiza cuando empieza una pregunta, escribe o responde.</span></div>
+            <div>
+              <div class="small">Problema actual</div>
+              <div class="live-question">${escapeHtml(liveQuestion)}</div>
+            </div>
+            <div class="live-answer">
+              <div class="metric"><span class="small">Respuesta escrita</span><strong>${escapeHtml(liveDraft === '' ? '—' : liveDraft)}</strong></div>
+              <div class="metric"><span class="small">Esperada</span><strong>${escapeHtml(snapshot.lastExpectedAnswer ?? '—')}</strong></div>
+              <div class="metric"><span class="small">Última enviada</span><strong>${escapeHtml(snapshot.lastPlayerAnswer ?? '—')}</strong></div>
+            </div>
           </div>
         </div>
       </div>
     </section>
 
-    <details class="card collapsible-panel" open>
-      <summary><span class="summary-copy"><span>📡 Ver en línea</span><span class="small">Se actualiza cuando empieza una pregunta, escribe o responde.</span></span></summary>
-      <div class="panel-body">
-        <div class="live-box">
-          <div class="small">Problema actual</div>
-          <div class="live-question">${escapeHtml(liveQuestion)}</div>
-          <div class="live-answer">
-            <div class="metric"><span class="small">Respuesta escrita</span><strong>${escapeHtml(liveDraft === '' ? '—' : liveDraft)}</strong></div>
-            <div class="metric"><span class="small">Esperada</span><strong>${escapeHtml(snapshot.lastExpectedAnswer ?? '—')}</strong></div>
-            <div class="metric"><span class="small">Última enviada</span><strong>${escapeHtml(snapshot.lastPlayerAnswer ?? '—')}</strong></div>
+    <section class="card">
+      <div class="section-title"><div><h3>Filtro y contexto</h3><div class="small">Ajusta operación y sesión sin cambiar de bloque.</div></div></div>
+      <div class="control-stack">
+        <div>
+          <div class="small" style="margin-bottom:8px;">Operación</div>
+          <div class="operation-cards" id="operationCards">${['all','add','sub','mul','challenge'].map((key)=>{
+            const data = key === 'all'
+              ? attempts.reduce((acc, item)=>({ attempts:acc.attempts+1, correct:acc.correct + (item.isCorrect?1:0), wrong:acc.wrong + (item.isCorrect?0:1), slow:acc.slow + (isSlow(item)?1:0) }), {attempts:0,correct:0,wrong:0,slow:0})
+              : (categoryStats[key] || {attempts:0,correct:0,wrong:0,slow:0});
+            return `<button class="op-card ${opFilter===key?'active':''}" data-operation="${key}">
+              <div class="label">${key === 'all' ? 'Todas' : humanCategory(key)}</div>
+              <div class="sub">${data.correct}/${data.attempts} correctos · ${accuracy(data.correct, data.attempts)}%</div>
+              <div class="sub">Errores: ${data.wrong} · Lentos: ${data.slow}</div>
+            </button>`;
+          }).join('')}</div>
+        </div>
+        <div>
+          <div class="small" style="margin-bottom:8px;">Sesión</div>
+          <div class="session-grid" id="sessionCards">
+            <button class="session-card ${sessionFilter==='all'?'active':''}" data-session-filter="all" type="button">
+              <div class="label">Todas las sesiones</div>
+              <div class="sub">${attempts.length} operaciones registradas</div>
+            </button>
+            ${sessions.length ? sessions.map((session)=>`<button class="session-card ${sessionFilter===session.id?'active':''}" data-session-filter="${session.id}" type="button">
+              <div class="label">${escapeHtml(humanCategory(session.mode))}</div>
+              <div class="sub">${fmtDate(session.clientDate)} · ${escapeHtml(session.id)}</div>
+              <div class="sub">Intentos ${Number(session.totalAttempts || 0)} · aciertos ${Number(session.correct || 0)} · errores ${Number(session.wrong || 0)}</div>
+            </button>`).join('') : '<div class="empty">Sin sesiones jugadas.</div>'}
           </div>
         </div>
       </div>
-    </details>
+    </section>
 
-    <details class="card collapsible-panel" open>
-      <summary><span class="summary-copy"><span>📘 Resumen por operación</span><span class="small">Filtra por categoría para enfocar el análisis.</span></span></summary>
-      <div class="panel-body panel-stack">
-        <div class="operation-cards" id="operationCards">${['all','add','sub','mul','challenge'].map((key)=>{
-          const data = key === 'all'
-            ? attempts.reduce((acc, item)=>({ attempts:acc.attempts+1, correct:acc.correct + (item.isCorrect?1:0), wrong:acc.wrong + (item.isCorrect?0:1), slow:acc.slow + (isSlow(item)?1:0) }), {attempts:0,correct:0,wrong:0,slow:0})
-            : (categoryStats[key] || {attempts:0,correct:0,wrong:0,slow:0});
-          return `<button class="op-card ${opFilter===key?'active':''}" data-operation="${key}">
-            <div class="label">${key === 'all' ? 'Todas' : humanCategory(key)}</div>
-            <div class="sub">${data.correct}/${data.attempts} correctos · ${accuracy(data.correct, data.attempts)}%</div>
-            <div class="sub">Errores: ${data.wrong} · Lentos: ${data.slow}</div>
-          </button>`;
-        }).join('')}</div>
-      </div>
-    </details>
-
-    <details class="card collapsible-panel">
-      <summary><span class="summary-copy"><span>🗂️ Sesiones</span><span class="small">Elige una sesión para acotar el detalle mostrado.</span></span></summary>
-      <div class="panel-body">
-        <div class="session-grid" id="sessionCards">
-          <button class="session-card ${sessionFilter==='all'?'active':''}" data-session-filter="all" type="button">
-            <div class="label">Todas las sesiones</div>
-            <div class="sub">${attempts.length} operaciones registradas</div>
-          </button>
-          ${sessions.length ? sessions.map((session)=>`<button class="session-card ${sessionFilter===session.id?'active':''}" data-session-filter="${session.id}" type="button">
-            <div class="label">${escapeHtml(humanCategory(session.mode))}</div>
-            <div class="sub">${fmtDate(session.clientDate)} · ${escapeHtml(session.id)}</div>
-            <div class="sub">Intentos ${Number(session.totalAttempts || 0)} · aciertos ${Number(session.correct || 0)} · errores ${Number(session.wrong || 0)}</div>
-          </button>`).join('') : '<div class="empty">Sin sesiones jugadas.</div>'}
-        </div>
-      </div>
-    </details>
-
-    <details class="card collapsible-panel" open>
-      <summary><span class="summary-copy"><span>🧾 Traducción para familia</span><span class="small">Resumen simple del avance, atraso y foco de trabajo.</span></span></summary>
-      <div class="panel-body">
-        <div class="digest-grid">
-          <div class="digest-cards">
-            <div class="digest-card good">
-              <strong>Lo que está haciendo muy bien</strong>
-              <ul class="digest-list">${digest.strengths.map((item)=>`<li>${escapeHtml(item)}</li>`).join('')}</ul>
+    <section class="insight-grid">
+      <details class="card collapsible-panel" open>
+        <summary><span class="summary-copy"><span>🧾 Traducción para familia</span><span class="small">Resumen simple del avance, atraso y foco de trabajo.</span></span></summary>
+        <div class="panel-body">
+          <div class="digest-grid">
+            <div class="digest-cards">
+              <div class="digest-card good">
+                <strong>Lo que está haciendo muy bien</strong>
+                <ul class="digest-list">${digest.strengths.map((item)=>`<li>${escapeHtml(item)}</li>`).join('')}</ul>
+              </div>
+              <div class="digest-card attention">
+                <strong>Lo que conviene trabajar</strong>
+                <ul class="digest-list">${digest.focus.map((item)=>`<li>${escapeHtml(item)}</li>`).join('')}</ul>
+              </div>
             </div>
-            <div class="digest-card attention">
-              <strong>Lo que conviene trabajar</strong>
-              <ul class="digest-list">${digest.focus.map((item)=>`<li>${escapeHtml(item)}</li>`).join('')}</ul>
+            <div class="digest-card">
+              <strong>Comparación rápida</strong>
+              <div class="compare-bars" style="margin-top:12px;">${digest.comparisons.map((item)=>{
+                const current = Number(item.current || 0);
+                const previous = Number(item.previous || 0);
+                const improved = current >= previous;
+                return `<div class="compare-row">
+                  <div><strong>${escapeHtml(item.label)}</strong></div>
+                  <div class="compare-meta"><span>Actual: ${current}% · ${escapeHtml(item.currentText)}</span><span>Previo: ${previous}% · ${escapeHtml(item.previousText)}</span></div>
+                  <div class="compare-track"><div class="compare-fill ${improved ? 'good' : 'warn'}" style="width:${Math.max(current, 4)}%"></div></div>
+                  <div class="small">${improved ? 'Va mejor o se mantiene respecto al registro anterior.' : 'Aquí se ve un pequeño retroceso; conviene reforzar esta parte.'}</div>
+                </div>`;
+              }).join('')}</div>
+              <div class="inline-note">Día más reciente: ${escapeHtml(digest.latestDay.key)} · ${digest.latestDay.correct}/${digest.latestDay.attempts} aciertos · tiempo promedio ${escapeHtml(formatDurationMs(digest.latestDay.attempts ? digest.latestDay.totalTimeMs / digest.latestDay.attempts : 0))}.</div>
             </div>
           </div>
-          <div class="digest-card">
-            <strong>Comparación rápida</strong>
-            <div class="compare-bars" style="margin-top:12px;">${digest.comparisons.map((item)=>{
-              const current = Number(item.current || 0);
-              const previous = Number(item.previous || 0);
-              const improved = current >= previous;
-              return `<div class="compare-row">
-                <div><strong>${escapeHtml(item.label)}</strong></div>
-                <div class="compare-meta"><span>Actual: ${current}% · ${escapeHtml(item.currentText)}</span><span>Previo: ${previous}% · ${escapeHtml(item.previousText)}</span></div>
-                <div class="compare-track"><div class="compare-fill ${improved ? 'good' : 'warn'}" style="width:${Math.max(current, 4)}%"></div></div>
-                <div class="small">${improved ? 'Va mejor o se mantiene respecto al registro anterior.' : 'Aquí se ve un pequeño retroceso; conviene reforzar esta parte.'}</div>
-              </div>`;
-            }).join('')}</div>
-            <div class="inline-note">Día más reciente: ${escapeHtml(digest.latestDay.key)} · ${digest.latestDay.correct}/${digest.latestDay.attempts} aciertos · tiempo promedio ${escapeHtml(formatDurationMs(digest.latestDay.attempts ? digest.latestDay.totalTimeMs / digest.latestDay.attempts : 0))}.</div>
+        </div>
+      </details>
+
+      <details class="card collapsible-panel" open>
+        <summary><span class="summary-copy"><span>🛰️ Snapshot y logros</span><span class="small">El estado en vivo y los reconocimientos quedan juntos para leer mejor el contexto.</span></span></summary>
+        <div class="panel-body panel-stack">
+          <div class="snapshot-grid">
+            <div class="soft-surface">
+              <div class="section-title"><h4>Estado actual</h4></div>
+              <div class="kpis">
+                <div class="kpi-row"><span>Última pregunta visible</span><strong>${escapeHtml(snapshot.lastQuestion || '—')}</strong></div>
+                <div class="kpi-row"><span>Problema actual</span><strong>${escapeHtml(snapshot.currentQuestion || '—')}</strong></div>
+                <div class="kpi-row"><span>Borrador en vivo</span><strong>${escapeHtml(liveDraft === '' ? '—' : liveDraft)}</strong></div>
+                <div class="kpi-row"><span>Actualizado</span><strong>${fmtDate(snapshot.updatedAt || snapshot.lastActivityAt || snapshot.lastClientDate)}</strong></div>
+              </div>
+            </div>
+            <div class="soft-surface">
+              <div class="section-title"><h4>Misiones y logros guardados</h4></div>
+              <div class="list">${achievements.length ? achievements.map((achievement)=>`<div class="item"><strong>${escapeHtml(achievement.medal || '🏅')} ${escapeHtml(achievement.title || 'Logro')}</strong><div class="small">Tipo: ${escapeHtml(achievement.type || 'mission')} · Categoría: ${escapeHtml(humanCategory(achievement.category))}</div><div class="small">Fecha: ${fmtDate(achievement.clientDate || achievement.timestamp)}</div></div>`).join('') : '<div class="empty">Sin logros guardados.</div>'}</div>
+            </div>
           </div>
         </div>
-      </div>
-    </details>
+      </details>
+    </section>
 
     <details class="card collapsible-panel" open>
       <summary><span class="summary-copy"><span>🧠 Operaciones contestadas</span><span class="small">${selectedSession ? `Mostrando evento de la sesión ${escapeHtml(selectedSession.id)}.` : 'Mostrando todas las operaciones registradas.'}</span></span></summary>
@@ -1015,27 +1032,7 @@ function renderPlayerDashboard(model){
           </div>`;
         }).join('') : '<div class="empty">Sin problemas registrados en este filtro.</div>'}</div>
       </div>
-    </details>
-
-    <div class="hero">
-      <details class="card collapsible-panel" open>
-        <summary><span class="summary-copy"><span>🏅 Misiones y logros guardados</span><span class="small">Historial de medallas y misiones del jugador.</span></span></summary>
-        <div class="panel-body">
-          <div class="list">${achievements.length ? achievements.map((achievement)=>`<div class="item"><strong>${escapeHtml(achievement.medal || '🏅')} ${escapeHtml(achievement.title || 'Logro')}</strong><div class="small">Tipo: ${escapeHtml(achievement.type || 'mission')} · Categoría: ${escapeHtml(humanCategory(achievement.category))}</div><div class="small">Fecha: ${fmtDate(achievement.clientDate || achievement.timestamp)}</div></div>`).join('') : '<div class="empty">Sin logros guardados.</div>'}</div>
-        </div>
-      </details>
-      <details class="card collapsible-panel">
-        <summary><span class="summary-copy"><span>🛰️ Estado del snapshot</span><span class="small">Último estado en vivo sincronizado desde el juego.</span></span></summary>
-        <div class="panel-body">
-          <div class="kpis">
-            <div class="kpi-row"><span>Última pregunta visible</span><strong>${escapeHtml(snapshot.lastQuestion || '—')}</strong></div>
-            <div class="kpi-row"><span>Problema actual</span><strong>${escapeHtml(snapshot.currentQuestion || '—')}</strong></div>
-            <div class="kpi-row"><span>Borrador en vivo</span><strong>${escapeHtml(liveDraft === '' ? '—' : liveDraft)}</strong></div>
-            <div class="kpi-row"><span>Actualizado</span><strong>${fmtDate(snapshot.updatedAt || snapshot.lastActivityAt || snapshot.lastClientDate)}</strong></div>
-          </div>
-        </div>
-      </details>
-    </div>`;
+    </details>`;
 
   [...els.playerDashboard.querySelectorAll('[data-operation]')].forEach((btn)=> btn.addEventListener('click', ()=>{ model.operationFilter = btn.dataset.operation; renderPlayerDashboard(model); }));
   [...els.playerDashboard.querySelectorAll('[data-session-filter]')].forEach((btn)=> btn.addEventListener('click', ()=>{ model.sessionFilter = btn.dataset.sessionFilter; renderPlayerDashboard(model); }));
