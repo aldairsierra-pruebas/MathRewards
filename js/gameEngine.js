@@ -15,7 +15,14 @@
   const ADAPTIVE_WINDOW_SIZE = 10;
   const ADAPTIVE_EVAL_WINDOW = 5;
   const ADAPTIVE_OFFSET_LIMITS = { min:-2, max:3 };
+  const ADAPTIVE_COOLDOWN_STEPS = 3;
   const ADAPTIVE_PROFILE_STORAGE_KEY = 'math_rewards_adaptive_profiles';
+  const ADAPTIVE_TYPES = ['add','sub','mul','challenge'];
+  const SKILL_TYPE_MAP = {
+    add_fluency:'add', add_no_carry:'add', add_with_carry:'add', add_double_carry:'add', add_three_digits:'add', add_challenge:'add',
+    sub_fluency:'sub', sub_no_borrow:'sub', sub_with_borrow:'sub', sub_two_digit_borrow:'sub', sub_three_digits:'sub', sub_challenge:'sub',
+    mul_easy_tables:'mul', mul_small_tables:'mul', mul_mixed_tables:'mul', mul_hard_tables:'mul', mul_two_digit:'mul', mul_challenge:'mul'
+  };
 
   const MISSION_POOL = {
     speed: [
@@ -67,8 +74,9 @@
     isReadyToAnswer:false,
     hasStarted:false,
     playerId:'Isaac',
-    perLevelAdaptiveOffset: { add:0, sub:0, mul:0, challenge:0 },
+    adaptiveProfiles: {},
     recentResults: { add:[], sub:[], mul:[], challenge:[] },
+    recentSkillResults: {},
     currentMetrics:null,
     stats: {
       correctStreak:0,
@@ -151,13 +159,41 @@
   }
 
 
-  function normalizeAdaptiveOffsets(raw = {}){
+  function createAdaptiveProfile(type, overrides = {}){
+    const masteryScore = clamp(Number(overrides.masteryScore ?? 50), 0, 100);
+    const lastTier = clamp(Number(overrides.lastTier ?? Math.round(((masteryScore / 100) * (ADAPTIVE_OFFSET_LIMITS.max - ADAPTIVE_OFFSET_LIMITS.min)) + ADAPTIVE_OFFSET_LIMITS.min)), ADAPTIVE_OFFSET_LIMITS.min, ADAPTIVE_OFFSET_LIMITS.max);
     return {
-      add: clamp(Number(raw.add ?? 0), ADAPTIVE_OFFSET_LIMITS.min, ADAPTIVE_OFFSET_LIMITS.max),
-      sub: clamp(Number(raw.sub ?? 0), ADAPTIVE_OFFSET_LIMITS.min, ADAPTIVE_OFFSET_LIMITS.max),
-      mul: clamp(Number(raw.mul ?? 0), ADAPTIVE_OFFSET_LIMITS.min, ADAPTIVE_OFFSET_LIMITS.max),
-      challenge: clamp(Number(raw.challenge ?? 0), ADAPTIVE_OFFSET_LIMITS.min, ADAPTIVE_OFFSET_LIMITS.max)
+      type,
+      masteryScore,
+      lastTier,
+      stableCount: Math.max(0, Number(overrides.stableCount ?? 0)),
+      recentAccuracyShort: clamp(Number(overrides.recentAccuracyShort ?? 0), 0, 1),
+      recentAccuracyLong: clamp(Number(overrides.recentAccuracyLong ?? 0), 0, 1),
+      recentSpeedShort: Math.max(0, Number(overrides.recentSpeedShort ?? 0)),
+      recentSpeedLong: Math.max(0, Number(overrides.recentSpeedLong ?? 0)),
+      positiveEvalCount: Math.max(0, Number(overrides.positiveEvalCount ?? 0)),
+      negativeEvalCount: Math.max(0, Number(overrides.negativeEvalCount ?? 0)),
+      cooldownRemaining: Math.max(0, Number(overrides.cooldownRemaining ?? 0)),
+      lastDecisionAt: overrides.lastDecisionAt || null,
+      lastDecision: overrides.lastDecision || 'hold',
+      lastMetrics: overrides.lastMetrics || null
     };
+  }
+
+  function normalizeAdaptiveOffsets(raw = {}){
+    const normalized = {};
+    const keys = Array.from(new Set([...ADAPTIVE_TYPES, ...Object.keys(SKILL_TYPE_MAP), ...Object.keys(raw || {})]));
+    keys.forEach((type)=>{
+      const entry = raw[type];
+      if(entry && typeof entry === 'object' && !Array.isArray(entry)){
+        normalized[type] = createAdaptiveProfile(type, entry);
+      } else {
+        const legacyOffset = clamp(Number(entry ?? 0), ADAPTIVE_OFFSET_LIMITS.min, ADAPTIVE_OFFSET_LIMITS.max);
+        const masteryScore = Math.round(((legacyOffset - ADAPTIVE_OFFSET_LIMITS.min) / (ADAPTIVE_OFFSET_LIMITS.max - ADAPTIVE_OFFSET_LIMITS.min)) * 100);
+        normalized[type] = createAdaptiveProfile(type, { masteryScore, lastTier: legacyOffset });
+      }
+    });
+    return normalized;
   }
 
   function loadAdaptiveProfile(playerId){
@@ -176,19 +212,35 @@
     try {
       const raw = localStorage.getItem(ADAPTIVE_PROFILE_STORAGE_KEY);
       const parsed = raw ? JSON.parse(raw) : {};
-      parsed[playerId] = normalizeAdaptiveOffsets(state.perLevelAdaptiveOffset);
+      parsed[playerId] = normalizeAdaptiveOffsets(state.adaptiveProfiles);
       localStorage.setItem(ADAPTIVE_PROFILE_STORAGE_KEY, JSON.stringify(parsed));
     } catch(error){
       console.warn('No se pudo guardar perfil adaptativo local.', error);
     }
   }
 
+  function ensureAdaptiveProfile(type){
+    if(!state.adaptiveProfiles[type]){
+      state.adaptiveProfiles[type] = createAdaptiveProfile(type);
+    }
+    return state.adaptiveProfiles[type];
+  }
+
+  function masteryScoreToOffset(masteryScore){
+    const ratio = clamp(Number(masteryScore ?? 50) / 100, 0, 1);
+    return clamp(Math.round((ratio * (ADAPTIVE_OFFSET_LIMITS.max - ADAPTIVE_OFFSET_LIMITS.min)) + ADAPTIVE_OFFSET_LIMITS.min), ADAPTIVE_OFFSET_LIMITS.min, ADAPTIVE_OFFSET_LIMITS.max);
+  }
+
   function getOffsetForType(type){
-    return clamp(Number(state.perLevelAdaptiveOffset[type] || 0), ADAPTIVE_OFFSET_LIMITS.min, ADAPTIVE_OFFSET_LIMITS.max);
+    return masteryScoreToOffset(ensureAdaptiveProfile(type).masteryScore);
   }
 
   function getDifficultyTier(type){
     return getOffsetForType(type) - ADAPTIVE_OFFSET_LIMITS.min;
+  }
+
+  function getMasteryProfile(type){
+    return ensureAdaptiveProfile(type);
   }
 
   function weightedAverage(values){
@@ -540,79 +592,153 @@
 
   function randomFrom(items){ return items[rand(0, items.length - 1)]; }
 
-  function buildAdditionQuestion(tier){
-    const profiles = [
-      ()=> { const a = rand(1, 9); const b = rand(1, 9); return { a, b, profile:'add_fluency', label:'sumas de una cifra', difficultyScore:1 }; },
-      ()=> { const a = rand(10, 40); let b = rand(10, 40); if(((a % 10) + (b % 10)) >= 10){ b = Math.max(10, b - ((a % 10) + (b % 10) - 9)); } return { a, b, profile:'add_no_carry', label:'sumas sin llevar', difficultyScore:2 }; },
-      ()=> { const a = rand(18, 69); let b = rand(11, 39); if(((a % 10) + (b % 10)) < 10){ b += 10 - (((a % 10) + (b % 10)) % 10); } return { a, b, profile:'add_with_carry', label:'sumas con llevar', difficultyScore:3 }; },
-      ()=> { const a = rand(35, 89); const b = rand(24, 79); return { a, b, profile:'add_double_carry', label:'sumas de dos cifras con llevar', difficultyScore:4 }; },
-      ()=> { const a = rand(125, 489); const b = rand(115, 389); return { a, b, profile:'add_three_digits', label:'sumas de tres cifras', difficultyScore:5 }; },
-      ()=> { const a = rand(245, 789); const b = rand(165, 698); return { a, b, profile:'add_challenge', label:'sumas de reto', difficultyScore:6 }; }
-    ];
-    const built = profiles[Math.max(0, Math.min(profiles.length - 1, tier))]();
+
+  function getProfileType(skillProfile){
+    return SKILL_TYPE_MAP[skillProfile] || 'challenge';
+  }
+
+  function getResultsForKey(key, isSkill = false){
+    const source = isSkill ? state.recentSkillResults : state.recentResults;
+    if(!source[key]){ source[key] = []; }
+    return source[key];
+  }
+
+  function getSkillProfilesForType(type){
+    return Object.keys(SKILL_TYPE_MAP).filter((key)=> SKILL_TYPE_MAP[key] === type);
+  }
+
+  function chooseSkillProfileForType(type, tier){
+    const profilesByType = {
+      add:['add_fluency','add_no_carry','add_with_carry','add_double_carry','add_three_digits','add_challenge'],
+      sub:['sub_fluency','sub_no_borrow','sub_with_borrow','sub_two_digit_borrow','sub_three_digits','sub_challenge'],
+      mul:['mul_easy_tables','mul_small_tables','mul_mixed_tables','mul_hard_tables','mul_two_digit','mul_challenge']
+    };
+    const options = profilesByType[type] || [];
+    if(!options.length){ return null; }
+    const preferredIndex = clamp(Math.round(Number(tier || 0)), 0, options.length - 1);
+    const scored = options.map((profile, index)=>{
+      const mastery = getMasteryProfile(profile).masteryScore;
+      const distancePenalty = Math.abs(index - preferredIndex) * 9;
+      const weaknessBonus = (100 - mastery) * 0.45;
+      const recency = getResultsForKey(profile, true).slice(-ADAPTIVE_EVAL_WINDOW);
+      const recentWrong = recency.filter((item)=>!item.correct).length * 6;
+      return { profile, score: weaknessBonus + recentWrong - distancePenalty };
+    }).sort((a,b)=> b.score - a.score);
+
+    const top = scored[0];
+    const fallback = options[preferredIndex];
+    if(!top){ return fallback; }
+    const fallbackGap = Math.abs(options.indexOf(top.profile) - preferredIndex);
+    if(fallbackGap > 2){
+      return fallback;
+    }
+    return top.profile;
+  }
+
+  function buildAdditionQuestion(tier, preferredProfile = null){
+    const profiles = {
+      add_fluency: ()=> { const a = rand(1, 9); const b = rand(1, 9); return { a, b, profile:'add_fluency', label:'sumas de una cifra', difficultyScore:1 }; },
+      add_no_carry: ()=> { const a = rand(10, 40); let b = rand(10, 40); if(((a % 10) + (b % 10)) >= 10){ b = Math.max(10, b - ((a % 10) + (b % 10) - 9)); } return { a, b, profile:'add_no_carry', label:'sumas sin llevar', difficultyScore:2 }; },
+      add_with_carry: ()=> { const a = rand(18, 69); let b = rand(11, 39); if(((a % 10) + (b % 10)) < 10){ b += 10 - (((a % 10) + (b % 10)) % 10); } return { a, b, profile:'add_with_carry', label:'sumas con llevar', difficultyScore:3 }; },
+      add_double_carry: ()=> { const a = rand(35, 89); const b = rand(24, 79); return { a, b, profile:'add_double_carry', label:'sumas de dos cifras con llevar', difficultyScore:4 }; },
+      add_three_digits: ()=> { const a = rand(125, 489); const b = rand(115, 389); return { a, b, profile:'add_three_digits', label:'sumas de tres cifras', difficultyScore:5 }; },
+      add_challenge: ()=> { const a = rand(245, 789); const b = rand(165, 698); return { a, b, profile:'add_challenge', label:'sumas de reto', difficultyScore:6 }; }
+    };
+    const order = ['add_fluency','add_no_carry','add_with_carry','add_double_carry','add_three_digits','add_challenge'];
+    const key = preferredProfile && profiles[preferredProfile] ? preferredProfile : order[Math.max(0, Math.min(order.length - 1, tier))];
+    const built = profiles[key]();
     return { ...built, answer: built.a + built.b, sign:'+', labelText: `${built.a} + ${built.b}` };
   }
 
-  function buildSubtractionQuestion(tier){
-    const profiles = [
-      ()=> { let a = rand(4, 18); let b = rand(1, a - 1); return { a, b, profile:'sub_fluency', label:'restas simples', difficultyScore:1 }; },
-      ()=> { let a = rand(20, 60); let b = rand(10, 39); if((a % 10) < (b % 10)){ b = Math.max(10, b - ((b % 10) - (a % 10))); } if(b >= a){ b = a - rand(1, 9); } return { a, b, profile:'sub_no_borrow', label:'restas sin préstamo', difficultyScore:2 }; },
-      ()=> { let a = rand(31, 79); let b = rand(12, 48); if((a % 10) >= (b % 10)){ b = Math.min(a - 1, b + 10); } if(b >= a){ a = b + rand(11, 25); } return { a, b, profile:'sub_with_borrow', label:'restas con préstamo', difficultyScore:3 }; },
-      ()=> { let a = rand(60, 99); let b = rand(25, 78); if((a % 10) >= (b % 10)){ b = Math.min(a - 1, b + 10); } if(b >= a){ a = b + rand(11, 18); } return { a, b, profile:'sub_two_digit_borrow', label:'restas de dos cifras con préstamo', difficultyScore:4 }; },
-      ()=> { let a = rand(120, 480); let b = rand(35, 289); if((a % 10) >= (b % 10)){ b = Math.min(a - 1, b + 10); } if(b >= a){ a = b + rand(25, 80); } return { a, b, profile:'sub_three_digits', label:'restas de tres cifras', difficultyScore:5 }; },
-      ()=> { let a = rand(300, 950); let b = rand(120, 780); if((a % 10) >= (b % 10)){ b = Math.min(a - 1, b + 10); } if(b >= a){ a = b + rand(50, 120); } return { a, b, profile:'sub_challenge', label:'restas de reto', difficultyScore:6 }; }
-    ];
-    const built = profiles[Math.max(0, Math.min(profiles.length - 1, tier))]();
+  function buildSubtractionQuestion(tier, preferredProfile = null){
+    const profiles = {
+      sub_fluency: ()=> { let a = rand(4, 18); let b = rand(1, a - 1); return { a, b, profile:'sub_fluency', label:'restas simples', difficultyScore:1 }; },
+      sub_no_borrow: ()=> { let a = rand(20, 60); let b = rand(10, 39); if((a % 10) < (b % 10)){ b = Math.max(10, b - ((b % 10) - (a % 10))); } if(b >= a){ b = a - rand(1, 9); } return { a, b, profile:'sub_no_borrow', label:'restas sin préstamo', difficultyScore:2 }; },
+      sub_with_borrow: ()=> { let a = rand(31, 79); let b = rand(12, 48); if((a % 10) >= (b % 10)){ b = Math.min(a - 1, b + 10); } if(b >= a){ a = b + rand(11, 25); } return { a, b, profile:'sub_with_borrow', label:'restas con préstamo', difficultyScore:3 }; },
+      sub_two_digit_borrow: ()=> { let a = rand(60, 99); let b = rand(25, 78); if((a % 10) >= (b % 10)){ b = Math.min(a - 1, b + 10); } if(b >= a){ a = b + rand(11, 18); } return { a, b, profile:'sub_two_digit_borrow', label:'restas de dos cifras con préstamo', difficultyScore:4 }; },
+      sub_three_digits: ()=> { let a = rand(120, 480); let b = rand(35, 289); if((a % 10) >= (b % 10)){ b = Math.min(a - 1, b + 10); } if(b >= a){ a = b + rand(25, 80); } return { a, b, profile:'sub_three_digits', label:'restas de tres cifras', difficultyScore:5 }; },
+      sub_challenge: ()=> { let a = rand(300, 950); let b = rand(120, 780); if((a % 10) >= (b % 10)){ b = Math.min(a - 1, b + 10); } if(b >= a){ a = b + rand(50, 120); } return { a, b, profile:'sub_challenge', label:'restas de reto', difficultyScore:6 }; }
+    };
+    const order = ['sub_fluency','sub_no_borrow','sub_with_borrow','sub_two_digit_borrow','sub_three_digits','sub_challenge'];
+    const key = preferredProfile && profiles[preferredProfile] ? preferredProfile : order[Math.max(0, Math.min(order.length - 1, tier))];
+    const built = profiles[key]();
     return { ...built, answer: built.a - built.b, sign:'-', labelText: `${built.a} - ${built.b}` };
   }
 
-  function buildMultiplicationQuestion(tier){
-    const profiles = [
-      ()=> { const easy = randomFrom([1,2,5,10]); const other = rand(1, 10); return { a: easy, b: other, profile:'mul_easy_tables', label:'tablas fáciles', difficultyScore:1 }; },
-      ()=> { const a = rand(2, 6); const b = rand(2, 10); return { a, b, profile:'mul_small_tables', label:'tablas pequeñas', difficultyScore:2 }; },
-      ()=> { const a = rand(4, 9); const b = rand(3, 10); return { a, b, profile:'mul_mixed_tables', label:'tablas mixtas', difficultyScore:3 }; },
-      ()=> { const pairs = [[7,8],[8,9],[6,7],[7,9],[8,8],[9,9]]; const [a,b] = randomFrom(pairs); return { a, b, profile:'mul_hard_tables', label:'tablas avanzadas', difficultyScore:4 }; },
-      ()=> { const a = rand(11, 19); const b = rand(3, 9); return { a, b, profile:'mul_two_digit', label:'multiplicación de dos dígitos por una cifra', difficultyScore:5 }; },
-      ()=> { const a = rand(12, 24); const b = rand(6, 12); return { a, b, profile:'mul_challenge', label:'multiplicación de reto', difficultyScore:6 }; }
-    ];
-    const built = profiles[Math.max(0, Math.min(profiles.length - 1, tier))]();
+  function buildMultiplicationQuestion(tier, preferredProfile = null){
+    const profiles = {
+      mul_easy_tables: ()=> { const easy = randomFrom([1,2,5,10]); const other = rand(1, 10); return { a: easy, b: other, profile:'mul_easy_tables', label:'tablas fáciles', difficultyScore:1 }; },
+      mul_small_tables: ()=> { const a = rand(2, 6); const b = rand(2, 10); return { a, b, profile:'mul_small_tables', label:'tablas pequeñas', difficultyScore:2 }; },
+      mul_mixed_tables: ()=> { const a = rand(4, 9); const b = rand(3, 10); return { a, b, profile:'mul_mixed_tables', label:'tablas mixtas', difficultyScore:3 }; },
+      mul_hard_tables: ()=> { const pairs = [[7,8],[8,9],[6,7],[7,9],[8,8],[9,9]]; const [a,b] = randomFrom(pairs); return { a, b, profile:'mul_hard_tables', label:'tablas avanzadas', difficultyScore:4 }; },
+      mul_two_digit: ()=> { const a = rand(11, 19); const b = rand(3, 9); return { a, b, profile:'mul_two_digit', label:'multiplicación de dos dígitos por una cifra', difficultyScore:5 }; },
+      mul_challenge: ()=> { const a = rand(12, 24); const b = rand(6, 12); return { a, b, profile:'mul_challenge', label:'multiplicación de reto', difficultyScore:6 }; }
+    };
+    const order = ['mul_easy_tables','mul_small_tables','mul_mixed_tables','mul_hard_tables','mul_two_digit','mul_challenge'];
+    const key = preferredProfile && profiles[preferredProfile] ? preferredProfile : order[Math.max(0, Math.min(order.length - 1, tier))];
+    const built = profiles[key]();
     return { ...built, answer: built.a * built.b, sign:'×', labelText: `${built.a} × ${built.b}` };
   }
 
-  function generateChallengeQuestion(){
-    const challengeType = randomFrom(['add','sub','mul']);
-    const challengeTier = Math.round((getDifficultyTier(challengeType) + getDifficultyTier('challenge')) / 2);
-    const question = challengeType === 'add'
-      ? buildAdditionQuestion(Math.max(2, challengeTier))
-      : challengeType === 'sub'
-        ? buildSubtractionQuestion(Math.max(2, challengeTier))
-        : buildMultiplicationQuestion(Math.max(2, challengeTier));
-    return { type: challengeType, ...question, label: question.labelText };
-  }
-
-  function deriveDifficulty(){
-    return { score: Number(currentQuestionMeta.difficultyScore || 1), label: currentQuestionMeta.label || 'general' };
-  }
-
-  function getAdaptiveBounds(type){
-    const tier = getDifficultyTier(type);
-    if(type === 'challenge'){
-      return { tier, label:['muy fácil','fácil','normal','difícil','muy difícil','reto'][tier] || 'reto' };
+  function computeAdaptiveMetrics(results = []){
+    if(!results.length){
+      return { accuracy:0, avgTime:0, avgScore:0, avgThinkTime:0, avgEdits:0, wrongCount:0, slowCount:0, lowScoreCount:0 };
     }
-    const builders = { add: buildAdditionQuestion, sub: buildSubtractionQuestion, mul: buildMultiplicationQuestion };
-    return { tier, generator: builders[type] };
+    return {
+      accuracy: results.filter((r)=>r.correct).length / results.length,
+      avgTime: weightedAverage(results.map((r)=>r.totalTimeSec)),
+      avgScore: weightedAverage(results.map((r)=>r.responseScore)),
+      avgThinkTime: weightedAverage(results.map((r)=>r.thinkTimeSec)),
+      avgEdits: weightedAverage(results.map((r)=>r.editsCount)),
+      wrongCount: results.filter((r)=>!r.correct).length,
+      slowCount: results.filter((r)=>r.totalTimeSec > r.slowThreshold).length,
+      lowScoreCount: results.filter((r)=>r.responseScore < r.lowScoreThreshold).length
+    };
   }
 
-  function adjustDifficultyProfile(type){
-    const recent = state.recentResults[type] || [];
-    const window = recent.slice(-ADAPTIVE_EVAL_WINDOW);
-    if(window.length < ADAPTIVE_EVAL_WINDOW){ return; }
+  function computeShortWindowMetrics(results = []){
+    return computeAdaptiveMetrics(results.slice(-ADAPTIVE_EVAL_WINDOW));
+  }
 
-    const accuracy = window.filter((r)=>r.correct).length / window.length;
-    const avgTime = weightedAverage(window.map((r)=>r.totalTimeSec));
-    const avgScore = weightedAverage(window.map((r)=>r.responseScore));
-    const avgThinkTime = weightedAverage(window.map((r)=>r.thinkTimeSec));
-    const avgEdits = weightedAverage(window.map((r)=>r.editsCount));
+  function computeLongWindowMetrics(results = []){
+    return computeAdaptiveMetrics(results.slice(-ADAPTIVE_WINDOW_SIZE));
+  }
+
+  function getAdaptiveSignal(metricsShort, metricsLong, streak, profileType){
+    const thresholds = {
+      fastThreshold: ({ add:16, sub:18, mul:14, challenge:20 }[profileType] || 18),
+      slowThreshold: ({ add:30, sub:34, mul:26, challenge:36 }[profileType] || 32),
+      thinkFastThreshold: ({ add:5, sub:6, mul:4, challenge:7 }[profileType] || 5)
+    };
+    const strongUp = metricsShort.accuracy >= 0.85 && metricsLong.accuracy >= 0.78 && metricsShort.avgTime <= thresholds.fastThreshold && metricsLong.avgTime <= thresholds.slowThreshold && metricsShort.avgScore >= 72 && metricsLong.avgScore >= 68 && metricsShort.avgThinkTime <= thresholds.thinkFastThreshold && streak >= 2;
+    const strongDown = metricsShort.accuracy <= 0.55 || metricsShort.wrongCount >= 2 || metricsShort.slowCount >= 3 || metricsLong.accuracy <= 0.62 || metricsLong.wrongCount >= 3 || metricsLong.lowScoreCount >= 4 || (metricsShort.avgEdits >= 2.5 && metricsShort.avgTime > thresholds.slowThreshold);
+    if(strongUp){ return 'up'; }
+    if(strongDown){ return 'down'; }
+    return 'hold';
+  }
+
+  function applyMasteryDelta(profile, decision, metricsShort, metricsLong){
+    const oldScore = profile.masteryScore;
+    let nextScore = oldScore;
+    if(decision === 'up'){
+      nextScore += Math.round(5 + (metricsShort.accuracy * 10) + ((metricsShort.avgScore - 60) / 8));
+    } else if(decision === 'down'){
+      nextScore -= Math.round(7 + ((1 - metricsShort.accuracy) * 12) + Math.max(0, (55 - metricsShort.avgScore) / 5));
+    } else {
+      const drift = ((metricsShort.accuracy + metricsLong.accuracy) / 2) >= 0.7 ? 1 : -1;
+      nextScore += drift;
+    }
+    profile.masteryScore = clamp(nextScore, 0, 100);
+  }
+
+  function adjustDifficultyProfile(type, isSkillProfile = false){
+    const recent = getResultsForKey(type, isSkillProfile);
+    if(recent.length < ADAPTIVE_EVAL_WINDOW){ return; }
+
+    const profile = getMasteryProfile(type);
+    const metricsShort = computeShortWindowMetrics(recent);
+    const metricsLong = computeLongWindowMetrics(recent);
+    const profileType = isSkillProfile ? getProfileType(type) : type;
     const streak = (()=>{
       let value = 0;
       for(let idx = recent.length - 1; idx >= 0; idx--){
@@ -621,20 +747,108 @@
       }
       return value;
     })();
-    const wrongsInLast5 = window.filter((r)=>!r.correct).length;
-    const slowCount = window.filter((r)=>r.totalTimeSec > r.slowThreshold).length;
-    const lowScoreCount = window.filter((r)=>r.responseScore < r.lowScoreThreshold).length;
+    const signal = getAdaptiveSignal(metricsShort, metricsLong, streak, profileType);
 
-    const shouldIncrease = accuracy >= 0.85 && avgTime <= window[window.length - 1].fastThreshold && avgScore >= 72 && avgThinkTime <= window[window.length - 1].thinkFastThreshold && streak >= 3;
-    const shouldDecrease = accuracy <= 0.6 || wrongsInLast5 >= 2 || slowCount >= 3 || (avgScore < 45 && lowScoreCount >= 3) || (avgEdits >= 2.5 && avgTime > window[window.length - 1].slowThreshold);
+    profile.recentAccuracyShort = metricsShort.accuracy;
+    profile.recentAccuracyLong = metricsLong.accuracy;
+    profile.recentSpeedShort = metricsShort.avgTime;
+    profile.recentSpeedLong = metricsLong.avgTime;
+    profile.lastMetrics = { short: metricsShort, long: metricsLong, streak };
 
-    if(shouldIncrease){
-      state.perLevelAdaptiveOffset[type] = Math.min(ADAPTIVE_OFFSET_LIMITS.max, getOffsetForType(type) + 1);
-    } else if(shouldDecrease){
-      state.perLevelAdaptiveOffset[type] = Math.max(ADAPTIVE_OFFSET_LIMITS.min, getOffsetForType(type) - 1);
+    if(signal === 'up'){
+      profile.positiveEvalCount += 1;
+      profile.negativeEvalCount = 0;
+    } else if(signal === 'down'){
+      profile.negativeEvalCount += 1;
+      profile.positiveEvalCount = 0;
+    } else {
+      profile.stableCount += 1;
+      profile.positiveEvalCount = 0;
+      profile.negativeEvalCount = 0;
+      profile.lastDecision = 'hold';
+      applyMasteryDelta(profile, 'hold', metricsShort, metricsLong);
+      return;
     }
+
+    if(profile.cooldownRemaining > 0){
+      profile.cooldownRemaining -= 1;
+      profile.stableCount += 1;
+      profile.lastDecision = 'hold';
+      applyMasteryDelta(profile, 'hold', metricsShort, metricsLong);
+      return;
+    }
+
+    const shouldIncrease = profile.positiveEvalCount >= 2;
+    const shouldDecrease = profile.negativeEvalCount >= 2 || metricsLong.wrongCount >= 2;
+    const decision = shouldIncrease ? 'up' : (shouldDecrease ? 'down' : 'hold');
+
+    applyMasteryDelta(profile, decision, metricsShort, metricsLong);
+    const nextTier = masteryScoreToOffset(profile.masteryScore);
+
+    if(decision !== 'hold' && nextTier !== profile.lastTier){
+      profile.lastTier = nextTier;
+      profile.cooldownRemaining = ADAPTIVE_COOLDOWN_STEPS;
+      profile.stableCount = 0;
+      profile.lastDecisionAt = nowIso();
+    } else {
+      profile.stableCount += 1;
+    }
+
+    profile.lastDecision = decision;
   }
 
+  function getChallengeWeights(){
+    const entries = ['add','sub','mul'].map((type)=>{
+      const profile = getMasteryProfile(type);
+      const weakness = 100 - profile.masteryScore;
+      const accuracyPenalty = (1 - Number(profile.recentAccuracyLong || 0.5)) * 30;
+      const speedPenalty = Math.min(20, Number(profile.recentSpeedLong || 0));
+      const scorePenalty = profile.lastMetrics ? Math.max(0, 70 - Number(profile.lastMetrics.long.avgScore || 0)) : 8;
+      return { type, weight: Math.max(1, Math.round(weakness + accuracyPenalty + speedPenalty + scorePenalty)) };
+    });
+    const spread = Math.max(...entries.map((entry)=>entry.weight)) - Math.min(...entries.map((entry)=>entry.weight));
+    if(spread <= 8){
+      return entries.reduce((acc, entry)=> ({ ...acc, [entry.type]: 1 }), {});
+    }
+    return entries.reduce((acc, entry)=> ({ ...acc, [entry.type]: entry.weight }), {});
+  }
+
+  function pickWeightedType(weights){
+    const entries = Object.entries(weights);
+    const total = entries.reduce((sum, [, weight])=> sum + Number(weight || 0), 0);
+    let cursor = Math.random() * total;
+    for(const [type, weight] of entries){
+      cursor -= Number(weight || 0);
+      if(cursor <= 0){ return type; }
+    }
+    return entries[0]?.[0] || 'add';
+  }
+
+  function generateChallengeQuestion(){
+    const challengeType = pickWeightedType(getChallengeWeights());
+    const challengeTier = Math.round((getDifficultyTier(challengeType) + getDifficultyTier('challenge')) / 2);
+    const preferredProfile = chooseSkillProfileForType(challengeType, challengeTier);
+    const question = challengeType === 'add'
+      ? buildAdditionQuestion(Math.max(2, challengeTier), preferredProfile)
+      : challengeType === 'sub'
+        ? buildSubtractionQuestion(Math.max(2, challengeTier), preferredProfile)
+        : buildMultiplicationQuestion(Math.max(2, challengeTier), preferredProfile);
+    return { type: challengeType, ...question, label: question.labelText, challengeWeights: getChallengeWeights() };
+  }
+
+  function deriveDifficulty(){
+    const itemDifficulty = Number(currentQuestionMeta.difficultyScore || 1);
+    return { score: itemDifficulty, itemDifficulty, label: currentQuestionMeta.label || 'general' };
+  }
+
+  function getAdaptiveBounds(type){
+    const tier = getDifficultyTier(type);
+    if(type === 'challenge'){
+      return { tier, label:['muy fácil','fácil','normal','difícil','muy difícil','reto'][tier] || 'reto' };
+    }
+    const builders = { add: buildAdditionQuestion, sub: buildSubtractionQuestion, mul: buildMultiplicationQuestion };
+    return { tier, generator: builders[type], preferredProfile: chooseSkillProfileForType(type, tier) };
+  }
   function beginQuestionInteraction(){
     if(state.isPaused){ return; }
     state.isReadyToAnswer = true;
@@ -664,13 +878,13 @@
       b = challenge.b;
       currentAnswer = challenge.answer;
       currentOperationType = challenge.type;
-      currentQuestionMeta = { profile: challenge.profile, label: `${challenge.label}`, difficultyScore: challenge.difficultyScore };
+      currentQuestionMeta = { profile: challenge.profile, label: `${challenge.label}`, difficultyScore: challenge.difficultyScore, challengeWeights: challenge.challengeWeights || null };
       els.signo.innerText = challenge.sign;
       currentQuestionLabel = challenge.label;
     } else {
       const bounds = getAdaptiveBounds(lvl.type);
       currentOperationType = lvl.type;
-      question = bounds.generator(bounds.tier);
+      question = bounds.generator(bounds.tier, bounds.preferredProfile);
       a = question.a;
       b = question.b;
       currentAnswer = question.answer;
@@ -766,7 +980,10 @@
     const writeMs = Math.max(0, metrics.submit_time_ms - firstMs);
     const totalMs = Math.max(0, metrics.submit_time_ms - metrics.time_shown_ms);
     const difficulty = deriveDifficulty();
-    const responseScore = scoreResponse(Boolean(isCorrect), difficulty.score, totalMs/1000, writeMs/1000, metrics.edits_count, currentOperationType);
+    const masteryProfileBefore = getMasteryProfile(lvl.type === 'challenge' ? currentOperationType : lvl.type);
+    const masteryScoreBefore = Number(masteryProfileBefore.masteryScore || 0);
+    const recommendedTier = getDifficultyTier(lvl.type === 'challenge' ? currentOperationType : lvl.type);
+    const responseScore = scoreResponse(Boolean(isCorrect), difficulty.itemDifficulty, totalMs/1000, writeMs/1000, metrics.edits_count, currentOperationType);
     const categoryKey = lvl.type;
     const currentAggregate = state.categoryAggregates[categoryKey] || { attempts:0, correct:0, wrong:0, highScore:0, scoreSum:0 };
     const nextAggregate = {
@@ -791,8 +1008,13 @@
       totalTimeMs: totalMs,
       difficulty: lvl.name,
       difficultyLabel: difficulty.label,
-      difficultyScore: difficulty.score,
+      difficultyScore: difficulty.itemDifficulty,
+      itemDifficulty: difficulty.itemDifficulty,
       skillProfile: currentQuestionMeta.profile || null,
+      itemSkillProfile: currentQuestionMeta.profile || null,
+      masteryScoreBefore,
+      masteryScoreAfter: masteryScoreBefore,
+      recommendedTier,
       mode: lvl.type,
       operationType: currentOperationType,
       operands: currentOperands,
@@ -823,18 +1045,14 @@
       avgResponseScoreCategory: nextAggregate.attempts > 0 ? Math.round(nextAggregate.scoreSum / nextAggregate.attempts) : 0,
       currentStreak: state.stats.correctStreak,
       bestStreak: state.stats.bestStreak,
-      recentAttempts: Math.min((state.recentResults[lvl.type] || []).length, 10),
-      recentCorrect: (state.recentResults[lvl.type] || []).slice(-10).filter((item)=>item.correct).length,
-      recentTimeMs: (state.recentResults[lvl.type] || []).slice(-10).reduce((sum, item)=> sum + (item.totalTimeSec * 1000), 0),
+      recentAttempts: Math.min((getResultsForKey(lvl.type === 'challenge' ? currentOperationType : lvl.type, false) || []).length, 10),
+      recentCorrect: (getResultsForKey(lvl.type === 'challenge' ? currentOperationType : lvl.type, false) || []).slice(-10).filter((item)=>item.correct).length,
+      recentTimeMs: (getResultsForKey(lvl.type === 'challenge' ? currentOperationType : lvl.type, false) || []).slice(-10).reduce((sum, item)=> sum + (item.totalTimeSec * 1000), 0),
       challengeType: lvl.type === 'challenge' ? currentOperationType : null
     };
   }
 
   function registerAttempt(payload){
-    if(window.AppStorage && typeof window.AppStorage.saveAttempt === 'function'){
-      window.AppStorage.saveAttempt(payload);
-    }
-
     state.stats.attemptsCount++;
     if(payload.isCorrect){
       state.stats.correctStreak++;
@@ -855,8 +1073,8 @@
     }
 
     const type = payload.mode;
-    if(!state.recentResults[type]){ state.recentResults[type] = []; }
-    state.recentResults[type].push({
+    const adaptiveType = payload.mode === 'challenge' && payload.operationType ? payload.operationType : type;
+    const resultEntry = {
       correct: payload.isCorrect,
       totalTimeSec: payload.totalTimeMs / 1000,
       thinkTimeSec: payload.thinkTimeMs / 1000,
@@ -864,12 +1082,27 @@
       responseScore: Number(payload.responseScore || 0),
       editsCount: Number(payload.editsCount || 0),
       skillProfile: payload.skillProfile || null,
-      fastThreshold: ({ add:16, sub:18, mul:14, challenge:20 }[type] || 18),
-      slowThreshold: ({ add:30, sub:34, mul:26, challenge:36 }[type] || 32),
-      thinkFastThreshold: ({ add:5, sub:6, mul:4, challenge:7 }[type] || 5),
-      lowScoreThreshold: ({ add:45, sub:45, mul:50, challenge:48 }[type] || 45)
-    });
-    if(state.recentResults[type].length > ADAPTIVE_WINDOW_SIZE){ state.recentResults[type].shift(); }
+      fastThreshold: ({ add:16, sub:18, mul:14, challenge:20 }[adaptiveType] || 18),
+      slowThreshold: ({ add:30, sub:34, mul:26, challenge:36 }[adaptiveType] || 32),
+      thinkFastThreshold: ({ add:5, sub:6, mul:4, challenge:7 }[adaptiveType] || 5),
+      lowScoreThreshold: ({ add:45, sub:45, mul:50, challenge:48 }[adaptiveType] || 45)
+    };
+
+    const opResults = getResultsForKey(adaptiveType, false);
+    opResults.push(resultEntry);
+    if(opResults.length > ADAPTIVE_WINDOW_SIZE){ opResults.shift(); }
+
+    if(type === 'challenge'){
+      const challengeResults = getResultsForKey('challenge', false);
+      challengeResults.push({ ...resultEntry, skillProfile: payload.skillProfile || null });
+      if(challengeResults.length > ADAPTIVE_WINDOW_SIZE){ challengeResults.shift(); }
+    }
+
+    if(payload.skillProfile){
+      const skillResults = getResultsForKey(payload.skillProfile, true);
+      skillResults.push(resultEntry);
+      if(skillResults.length > ADAPTIVE_WINDOW_SIZE){ skillResults.shift(); }
+    }
 
     const agg = state.categoryAggregates[type] || { attempts:0, correct:0, wrong:0, highScore:0, scoreSum:0 };
     agg.attempts += 1;
@@ -878,9 +1111,16 @@
     agg.highScore = Math.max(agg.highScore, Number(payload.responseScore || 0));
     state.categoryAggregates[type] = agg;
 
-    adjustDifficultyProfile(type);
-    if(payload.mode === 'challenge' && payload.operationType){ adjustDifficultyProfile(payload.operationType); }
+    adjustDifficultyProfile(adaptiveType);
+    if(payload.skillProfile){ adjustDifficultyProfile(payload.skillProfile, true); }
+    if(payload.mode === 'challenge'){ adjustDifficultyProfile('challenge'); }
+    payload.masteryScoreAfter = Number(getMasteryProfile(adaptiveType).masteryScore || payload.masteryScoreBefore || 0);
     saveAdaptiveProfile(state.playerId);
+
+    if(window.AppStorage && typeof window.AppStorage.saveAttempt === 'function'){
+      window.AppStorage.saveAttempt(payload);
+    }
+
     updateMissionProgress(payload);
 
     syncPresence({
@@ -914,7 +1154,7 @@
         xp: state.xp,
         levelIndex: state.levelIndex,
         medals: state.medals,
-        adaptive: normalizeAdaptiveOffsets(state.perLevelAdaptiveOffset),
+        adaptive: normalizeAdaptiveOffsets(state.adaptiveProfiles),
         isActive: Boolean(state.hasStarted || state.levelIndex !== null),
         date: nowIso()
       });
@@ -1142,7 +1382,7 @@
       }
 
       state.playerId = selected;
-      state.perLevelAdaptiveOffset = loadAdaptiveProfile(selected);
+      state.adaptiveProfiles = loadAdaptiveProfile(selected);
       updateSelectedPlayerBadge();
       if(window.FirebasePlaceholder){
         window.FirebasePlaceholder.setActivePlayer(selected);
@@ -1179,7 +1419,7 @@
     return;
   }
   state.playerId = cachedPlayerId;
-  state.perLevelAdaptiveOffset = loadAdaptiveProfile(cachedPlayerId);
+  state.adaptiveProfiles = loadAdaptiveProfile(cachedPlayerId);
   updateSelectedPlayerBadge();
 
   setupInputTracking();
