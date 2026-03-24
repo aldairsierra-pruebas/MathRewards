@@ -14,7 +14,7 @@
 .player-list{display:grid;gap:10px}.player-btn{border:2px solid transparent;border-radius:16px;background:#fff;padding:12px;text-align:left;cursor:pointer;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}.player-btn.active{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 8px 18px rgba(29,99,216,.15)}.player-btn:hover{border-color:var(--accent);transform:translateY(-1px)}
 .badge{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:700}.badge.ok{background:var(--okbg);color:var(--ok)}.badge.bad{background:var(--badbg);color:var(--bad)}.badge.warn{background:var(--warnbg);color:var(--warn)}
 .hero{display:grid;grid-template-columns:1.4fr 1fr;gap:16px}.metrics-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.metric{border:2px solid var(--line);border-radius:16px;padding:12px;background:#fbfdff;box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}.metric strong{display:block;font-size:1.45rem;margin-top:6px;color:#0f3156}
-.operation-cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.op-card,.session-card{border:2px solid var(--line);border-radius:16px;padding:12px;background:#fbfdff;cursor:pointer;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}.op-card:hover,.session-card:hover{transform:translateY(-1px);border-color:#9ec5ff}.op-card.active,.session-card.active{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 8px 20px rgba(29,99,216,.14)}.op-card .label,.session-card .label{font-weight:700}.op-card .sub,.session-card .sub{font-size:12px;color:var(--muted);margin-top:6px}
+.operation-cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.op-card,.session-card{border:2px solid var(--line);border-radius:16px;padding:12px;background:#fbfdff;cursor:pointer;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}.session-card:hover{transform:translateY(-1px);border-color:#9ec5ff}.session-card.active{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 8px 20px rgba(29,99,216,.14)}.op-card{cursor:default;background:#f6f9ff}.op-card .label,.session-card .label{font-weight:700}.op-card .sub,.session-card .sub{font-size:12px;color:var(--muted);margin-top:6px}
 .list{display:grid;gap:10px}.item{border:2px solid var(--line);border-radius:16px;padding:12px;background:#fbfdff}.item.success{background:var(--okbg);border-color:#b7e2c6}.item.error{background:var(--badbg);border-color:#f0b8b2}.item.slow{box-shadow:inset 0 0 0 2px #ffd08a}
 .grid-attempts{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}.kpis{display:grid;gap:8px}.kpi-row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line)}.kpi-row:last-child{border-bottom:none}
 .section-title{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.section-title h3,.section-title h2{margin:0}.chips{display:flex;flex-wrap:wrap;gap:8px}.chip{padding:6px 10px;border-radius:999px;background:var(--accent-soft);border:1px solid #bfd5ff;font-size:12px;color:#17437f}.empty{color:var(--muted);font-style:italic}
@@ -245,13 +245,10 @@ function renderPlayerDashboard(model){
   const sessions = (model.sessions || []).filter((s)=> Number(s.totalAttempts || 0) > 0);
   const [status,statusClass] = statusMeta(snapshot);
   const categoryStats = buildCategoryStats(attempts);
-  const opFilter = model.operationFilter || 'all';
   const sessionFilter = model.sessionFilter || 'all';
   const visibleAttempts = attempts.filter((attempt)=>{
-    const bucket = attempt.mode === 'challenge' ? 'challenge' : (attempt.operationType || attempt.mode || 'general');
-    const matchesOperation = opFilter === 'all' ? true : bucket === opFilter;
     const matchesSession = sessionFilter === 'all' ? true : attempt.sessionId === sessionFilter;
-    return matchesOperation && matchesSession;
+    return matchesSession;
   });
   const selectedSession = sessionFilter === 'all' ? null : sessions.find((session)=>session.id===sessionFilter) || null;
   const errorGroups = visibleAttempts.filter((a)=>!a.isCorrect).reduce((acc, attempt)=>{
@@ -315,17 +312,18 @@ function renderPlayerDashboard(model){
     </details>
 
     <details class="card collapsible-panel" open>
-      <summary><span class="summary-copy"><span>📘 Resumen por operación</span><span class="small">Filtra por categoría para enfocar el análisis.</span></span></summary>
+      <summary><span class="summary-copy"><span>📘 Resumen por operación</span><span class="small">Niveles por categoría para ver desempeño en estadísticas.</span></span></summary>
       <div class="panel-body panel-stack">
         <div class="operation-cards" id="operationCards">${['all','add','sub','mul','challenge'].map((key)=>{
           const data = key === 'all'
             ? attempts.reduce((acc, item)=>({ attempts:acc.attempts+1, correct:acc.correct + (item.isCorrect?1:0), wrong:acc.wrong + (item.isCorrect?0:1), slow:acc.slow + (isSlow(item)?1:0) }), {attempts:0,correct:0,wrong:0,slow:0})
             : (categoryStats[key] || {attempts:0,correct:0,wrong:0,slow:0});
-          return `<button class="op-card ${opFilter===key?'active':''}" data-operation="${key}">
+          const levelScore = Math.round((accuracy(data.correct, data.attempts) * 0.7) + ((100 - Math.min(100, Math.round((data.slow / Math.max(1, data.attempts)) * 100))) * 0.3));
+          return `<div class="op-card">
             <div class="label">${key === 'all' ? 'Todas' : humanCategory(key)}</div>
-            <div class="sub">${data.correct}/${data.attempts} correctos · ${accuracy(data.correct, data.attempts)}%</div>
-            <div class="sub">Errores: ${data.wrong} · Lentos: ${data.slow}</div>
-          </button>`;
+            <div class="sub">Nivel: ${levelScore}/100</div>
+            <div class="sub">${data.correct}/${data.attempts} correctos · Errores: ${data.wrong} · Lentos: ${data.slow}</div>
+          </div>`;
         }).join('')}</div>
       </div>
     </details>
@@ -398,7 +396,7 @@ function renderPlayerDashboard(model){
             <div class="small">Categoría: ${escapeHtml(humanCategory(attempt.mode))} · Tipo: ${escapeHtml(humanCategory(attempt.operationType))}</div>
             <div class="small">Fecha: ${fmtDate(attempt.clientDate || attempt.timestamp)}</div>
           </div>`;
-        }).join('') : '<div class="empty">Sin problemas registrados en este filtro.</div>'}</div>
+        }).join('') : '<div class="empty">Sin problemas registrados en esta sesión.</div>'}</div>
       </div>
     </details>
 
@@ -422,7 +420,6 @@ function renderPlayerDashboard(model){
       </details>
     </div>`;
 
-  [...els.playerDashboard.querySelectorAll('[data-operation]')].forEach((btn)=> btn.addEventListener('click', ()=>{ model.operationFilter = btn.dataset.operation; renderPlayerDashboard(model); }));
   [...els.playerDashboard.querySelectorAll('[data-session-filter]')].forEach((btn)=> btn.addEventListener('click', ()=>{ model.sessionFilter = btn.dataset.sessionFilter; renderPlayerDashboard(model); }));
   const btnReset = document.getElementById('btnResetStats');
   if(btnReset){ btnReset.addEventListener('click', ()=> resetPlayerStats(model.player.id)); }
@@ -480,7 +477,7 @@ function selectPlayer(playerId){ state.selectedPlayerId = playerId; renderPlayer
 function subscribePlayerDetail(playerId){
   clearDetailSubs();
   const player = state.players.get(playerId)?.player;
-  const model = { player, snapshot: state.players.get(playerId)?.snapshot, summary:{}, sessions:[], achievements:[], attempts:[], operationFilter:'all', sessionFilter:'all', attemptsUnsubs:[] };
+  const model = { player, snapshot: state.players.get(playerId)?.snapshot, summary:{}, sessions:[], achievements:[], attempts:[], sessionFilter:'all', attemptsUnsubs:[] };
   state.detailModel = model;
   renderPlayerDashboard(model);
 
