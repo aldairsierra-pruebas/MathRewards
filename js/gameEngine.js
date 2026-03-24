@@ -92,7 +92,8 @@
     currentCategory: { attempts:0, correct:0, scoreSum:0 },
     categoryAggregates: { add:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, sub:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, mul:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, challenge:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0} },
     medalHistory: [],
-    presenceHeartbeatId:null
+    presenceHeartbeatId:null,
+    askedQuestionKeys: new Set()
   };
 
   const sGood = new Audio('https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg');
@@ -537,6 +538,7 @@
     state.skipsRemaining = 2;
     state.sessionId = null;
     state.currentCategory = { attempts:0, correct:0, scoreSum:0 };
+    state.askedQuestionKeys = new Set();
     state.currentMetrics = null;
     currentQuestionLabel = '';
     currentAnswer = 0;
@@ -826,7 +828,8 @@
 
   function generateChallengeQuestion(){
     const challengeType = pickWeightedType(getChallengeWeights());
-    const challengeTier = Math.round((getDifficultyTier(challengeType) + getDifficultyTier('challenge')) / 2);
+    const baseTier = Math.max(getDifficultyTier(challengeType), getDifficultyTier('challenge'));
+    const challengeTier = clamp(baseTier + rand(1,2), 0, 5);
     const preferredProfile = chooseSkillProfileForType(challengeType, challengeTier);
     const question = challengeType === 'add'
       ? buildAdditionQuestion(Math.max(2, challengeTier), preferredProfile)
@@ -872,26 +875,33 @@
 
     let a,b;
     let question;
-    if(lvl.type === 'challenge'){
-      const challenge = generateChallengeQuestion();
-      a = challenge.a;
-      b = challenge.b;
-      currentAnswer = challenge.answer;
-      currentOperationType = challenge.type;
-      currentQuestionMeta = { profile: challenge.profile, label: `${challenge.label}`, difficultyScore: challenge.difficultyScore, challengeWeights: challenge.challengeWeights || null };
-      els.signo.innerText = challenge.sign;
-      currentQuestionLabel = challenge.label;
-    } else {
-      const bounds = getAdaptiveBounds(lvl.type);
-      currentOperationType = lvl.type;
-      question = bounds.generator(bounds.tier, bounds.preferredProfile);
-      a = question.a;
-      b = question.b;
-      currentAnswer = question.answer;
-      currentQuestionMeta = { profile: question.profile, label: question.label, difficultyScore: question.difficultyScore };
-      els.signo.innerText = question.sign;
-      currentQuestionLabel = question.labelText;
-    }
+    let key = '';
+    let safety = 0;
+    do {
+      if(lvl.type === 'challenge'){
+        const challenge = generateChallengeQuestion();
+        a = challenge.a;
+        b = challenge.b;
+        currentAnswer = challenge.answer;
+        currentOperationType = challenge.type;
+        currentQuestionMeta = { profile: challenge.profile, label: `${challenge.label}`, difficultyScore: challenge.difficultyScore, challengeWeights: challenge.challengeWeights || null };
+        els.signo.innerText = challenge.sign;
+        currentQuestionLabel = challenge.label;
+      } else {
+        const bounds = getAdaptiveBounds(lvl.type);
+        currentOperationType = lvl.type;
+        question = bounds.generator(bounds.tier, bounds.preferredProfile);
+        a = question.a;
+        b = question.b;
+        currentAnswer = question.answer;
+        currentQuestionMeta = { profile: question.profile, label: question.label, difficultyScore: question.difficultyScore };
+        els.signo.innerText = question.sign;
+        currentQuestionLabel = question.labelText;
+      }
+      key = `${lvl.type}|${currentOperationType}|${a}|${b}|${els.signo.innerText}`;
+      safety += 1;
+    } while(state.askedQuestionKeys.has(key) && safety < 40);
+    state.askedQuestionKeys.add(key);
 
     currentOperands = [a,b];
     els.d1.innerText = Math.floor(a/10) || '';
@@ -1167,9 +1177,10 @@
     const avgScore = state.currentCategory.scoreSum / attempts;
     const grade = Math.round((accuracy * 0.6) + (avgScore * 0.4));
     let message = '¡Sigue practicando! Cada intento te hace más fuerte.';
-    if(grade >= 90){ message = '🌟 ¡Excelente! Tienes gran dominio matemático.'; }
-    else if(grade >= 75){ message = '👏 ¡Muy bien! Vas por muy buen camino.'; }
-    else if(grade >= 60){ message = '💪 Buen avance. Un poco más y serás imparable.'; }
+    if(grade >= 90){ message = '🌟 ¡Excelente! Resuelves muy bien; para perfeccionar tu calificación, mejora un poco tus tiempos de respuesta.'; }
+    else if(grade >= 75){ message = '👏 ¡Muy bien! Vas por gran camino; con respuestas un poco más rápidas subirás aún más tu calificación.'; }
+    else if(grade >= 60){ message = '💪 Buen avance. Si mejoras velocidad y precisión, tu calificación crecerá rápidamente.'; }
+    else { message = '🧠 Buen esfuerzo. Sigue practicando y mejora tus tiempos para lograr una mejor calificación.'; }
     return { grade, message };
   }
 
@@ -1208,11 +1219,11 @@
     });
 
     state.currentCategory.attempts++;
+    state.questionCount++;
     registerAttempt(attemptPayload);
 
     if(state.attemptsLeft <= 0){
       els.mensaje.innerText += ' — Reinicio de oportunidades de la categoría.';
-      state.questionCount = 0;
       state.attemptsLeft = getCurrentLevel().attempts;
     }
 
@@ -1224,6 +1235,10 @@
     }
 
     updateHUD();
+    if(state.questionCount >= getCurrentLevel().questions){
+      showFinalCategoryScreen();
+      return;
+    }
     saveLocal();
     scheduleNextQuestion();
   }
@@ -1262,7 +1277,6 @@
       els.mensaje.innerText = `✅ Correcto! +${gained} pts · Score ${attemptPayload.responseScore}`;
 
       if(state.questionCount >= getCurrentLevel().questions){
-        resetCategoryView('Categoría completada. Puedes elegir una nueva.');
         showFinalCategoryScreen();
         return;
       }
@@ -1309,6 +1323,7 @@
     state.sessionId = buildSessionId(getCurrentLevel().type);
     state.sessionStartedAt = Date.now();
     state.currentCategory = { attempts:0, correct:0, scoreSum:0 };
+    state.askedQuestionKeys = new Set();
     const t = getCurrentLevel().type;
     if(!state.categoryAggregates[t]){ state.categoryAggregates[t] = { attempts:0, correct:0, wrong:0, highScore:0, scoreSum:0 }; }
     els.categoryMenu.classList.add('hidden');
@@ -1408,7 +1423,10 @@
   els.btnAbortCategory && els.btnAbortCategory.addEventListener('click', abortCurrentCategory);
   els.btnResumePause && els.btnResumePause.addEventListener('click', resumeGame);
   document.querySelectorAll('.category-btn').forEach((btn)=> btn.addEventListener('click', ()=> chooseCategory(Number(btn.dataset.level))));
-  els.btnFinalContinue && els.btnFinalContinue.addEventListener('click', ()=> els.finalOverlay.classList.add('hidden'));
+  els.btnFinalContinue && els.btnFinalContinue.addEventListener('click', ()=>{
+    els.finalOverlay.classList.add('hidden');
+    resetCategoryView('Categoría completada. Puedes elegir una nueva.');
+  });
   els.btnMissionContinue && els.btnMissionContinue.addEventListener('click', ()=> els.missionCongratsOverlay.classList.add('hidden'));
   els.btnOpenMedals && els.btnOpenMedals.addEventListener('click', ()=>{ renderMedalsHistory(); els.medalsOverlay.classList.remove('hidden'); });
   els.btnCloseMedals && els.btnCloseMedals.addEventListener('click', ()=> els.medalsOverlay.classList.add('hidden'));
