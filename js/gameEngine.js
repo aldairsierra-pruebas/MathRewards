@@ -360,10 +360,19 @@
   function renderPlayerInsights(insights){
     if(!insights) return;
     const wk = insights.weekly || {};
+    const summary = insights.summary || {};
     if(els.insWeekPoints) els.insWeekPoints.innerText = String(wk.weekPoints || 0);
     if(els.insWeekCorrect) els.insWeekCorrect.innerText = String(wk.weekCorrect || 0);
     if(els.insDailyHigh) els.insDailyHigh.innerText = String(wk.dailyHighScore || 0);
     if(els.insWeekSessions) els.insWeekSessions.innerText = String(wk.weekSessions || 0);
+
+    state.points = Number(summary.rankPoints ?? summary.points ?? state.points ?? 0);
+    state.totalAttempts = Number(summary.totalAttempts ?? state.totalAttempts ?? 0);
+    state.totalCorrect = Number(summary.totalCorrect ?? state.totalCorrect ?? 0);
+    state.totalWrong = Number(summary.totalWrong ?? state.totalWrong ?? 0);
+    state.stats.correctStreak = Number(summary.currentStreak ?? state.stats.correctStreak ?? 0);
+    state.stats.bestStreak = Number(summary.bestStreak ?? state.stats.bestStreak ?? 0);
+    updateHUD();
 
     if(els.insByCategory){
       const byCat = insights.byCategory || {};
@@ -404,6 +413,9 @@
       renderMissions();
     }catch(error){
       console.warn('No se pudieron cargar misiones remotas.', error);
+      if(els.missionList){
+        els.missionList.innerHTML = '<div class="mission-item">No se pudieron cargar misiones remotas.</div>';
+      }
     }
   }
 
