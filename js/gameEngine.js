@@ -55,9 +55,7 @@
   let state = {
     levelIndex:null,
     questionCount:0,
-    attemptsLeft: config.levels[0].attempts,
     points:0,
-    lives:config.maxLives,
     xp:0,
     xpTarget:100,
     timer:null,
@@ -92,7 +90,8 @@
     currentCategory: { attempts:0, correct:0, scoreSum:0 },
     categoryAggregates: { add:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, sub:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, mul:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, challenge:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0} },
     medalHistory: [],
-    presenceHeartbeatId:null
+    presenceHeartbeatId:null,
+    askedQuestionKeys: new Set()
   };
 
   const sGood = new Audio('https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg');
@@ -361,10 +360,19 @@
   function renderPlayerInsights(insights){
     if(!insights) return;
     const wk = insights.weekly || {};
+    const summary = insights.summary || {};
     if(els.insWeekPoints) els.insWeekPoints.innerText = String(wk.weekPoints || 0);
     if(els.insWeekCorrect) els.insWeekCorrect.innerText = String(wk.weekCorrect || 0);
     if(els.insDailyHigh) els.insDailyHigh.innerText = String(wk.dailyHighScore || 0);
     if(els.insWeekSessions) els.insWeekSessions.innerText = String(wk.weekSessions || 0);
+
+    state.points = Number(summary.rankPoints ?? summary.points ?? state.points ?? 0);
+    state.totalAttempts = Number(summary.totalAttempts ?? state.totalAttempts ?? 0);
+    state.totalCorrect = Number(summary.totalCorrect ?? state.totalCorrect ?? 0);
+    state.totalWrong = Number(summary.totalWrong ?? state.totalWrong ?? 0);
+    state.stats.correctStreak = Number(summary.currentStreak ?? state.stats.correctStreak ?? 0);
+    state.stats.bestStreak = Number(summary.bestStreak ?? state.stats.bestStreak ?? 0);
+    updateHUD();
 
     if(els.insByCategory){
       const byCat = insights.byCategory || {};
@@ -405,6 +413,9 @@
       renderMissions();
     }catch(error){
       console.warn('No se pudieron cargar misiones remotas.', error);
+      if(els.missionList){
+        els.missionList.innerHTML = '<div class="mission-item">No se pudieron cargar misiones remotas.</div>';
+      }
     }
   }
 
@@ -504,14 +515,7 @@
   }
 
   function updateHearts(animatedLostIndex){
-    els.vidasUI.innerHTML = '';
-    for(let i=0;i<config.maxLives;i++){
-      const heart = document.createElement('span');
-      heart.className = `heart ${i < state.lives ? 'alive' : 'lost'}`;
-      heart.innerText = '❤';
-      if(i === animatedLostIndex){ heart.classList.add('life-loss'); }
-      els.vidasUI.appendChild(heart);
-    }
+    if(els.vidasUI){ els.vidasUI.innerHTML = ''; }
   }
 
   function updateSkipCounter(){
@@ -532,11 +536,10 @@
     state.levelIndex = null;
     state.questionCount = 0;
     state.time = 0;
-    state.lives = config.maxLives;
-    state.attemptsLeft = config.levels[0].attempts;
     state.skipsRemaining = 2;
     state.sessionId = null;
     state.currentCategory = { attempts:0, correct:0, scoreSum:0 };
+    state.askedQuestionKeys = new Set();
     state.currentMetrics = null;
     currentQuestionLabel = '';
     currentAnswer = 0;
@@ -562,13 +565,14 @@
       els.mensaje.innerText = 'Primero elige una categoría.';
       return;
     }
+    completePendingAsAbandoned('Abandono de categoría');
     resetCategoryView('Regresaste a categorías. Puedes elegir otra misión matemática.');
   }
 
   function updateHUD(){
     const lvl = getCurrentLevel();
     els.puntos.innerText = state.points;
-    els.vidas.innerText = state.lives;
+    els.vidas.innerText = '—';
     els.tiempo.innerText = state.time;
     els.xpText.innerText = state.xp;
     els.xpTarget.innerText = state.xpTarget;
@@ -826,7 +830,8 @@
 
   function generateChallengeQuestion(){
     const challengeType = pickWeightedType(getChallengeWeights());
-    const challengeTier = Math.round((getDifficultyTier(challengeType) + getDifficultyTier('challenge')) / 2);
+    const baseTier = Math.max(getDifficultyTier(challengeType), getDifficultyTier('challenge'));
+    const challengeTier = clamp(baseTier + rand(1,2), 0, 5);
     const preferredProfile = chooseSkillProfileForType(challengeType, challengeTier);
     const question = challengeType === 'add'
       ? buildAdditionQuestion(Math.max(2, challengeTier), preferredProfile)
@@ -872,26 +877,33 @@
 
     let a,b;
     let question;
-    if(lvl.type === 'challenge'){
-      const challenge = generateChallengeQuestion();
-      a = challenge.a;
-      b = challenge.b;
-      currentAnswer = challenge.answer;
-      currentOperationType = challenge.type;
-      currentQuestionMeta = { profile: challenge.profile, label: `${challenge.label}`, difficultyScore: challenge.difficultyScore, challengeWeights: challenge.challengeWeights || null };
-      els.signo.innerText = challenge.sign;
-      currentQuestionLabel = challenge.label;
-    } else {
-      const bounds = getAdaptiveBounds(lvl.type);
-      currentOperationType = lvl.type;
-      question = bounds.generator(bounds.tier, bounds.preferredProfile);
-      a = question.a;
-      b = question.b;
-      currentAnswer = question.answer;
-      currentQuestionMeta = { profile: question.profile, label: question.label, difficultyScore: question.difficultyScore };
-      els.signo.innerText = question.sign;
-      currentQuestionLabel = question.labelText;
-    }
+    let key = '';
+    let safety = 0;
+    do {
+      if(lvl.type === 'challenge'){
+        const challenge = generateChallengeQuestion();
+        a = challenge.a;
+        b = challenge.b;
+        currentAnswer = challenge.answer;
+        currentOperationType = challenge.type;
+        currentQuestionMeta = { profile: challenge.profile, label: `${challenge.label}`, difficultyScore: challenge.difficultyScore, challengeWeights: challenge.challengeWeights || null };
+        els.signo.innerText = challenge.sign;
+        currentQuestionLabel = challenge.label;
+      } else {
+        const bounds = getAdaptiveBounds(lvl.type);
+        currentOperationType = lvl.type;
+        question = bounds.generator(bounds.tier, bounds.preferredProfile);
+        a = question.a;
+        b = question.b;
+        currentAnswer = question.answer;
+        currentQuestionMeta = { profile: question.profile, label: question.label, difficultyScore: question.difficultyScore };
+        els.signo.innerText = question.sign;
+        currentQuestionLabel = question.labelText;
+      }
+      key = `${lvl.type}|${currentOperationType}|${a}|${b}|${els.signo.innerText}`;
+      safety += 1;
+    } while(state.askedQuestionKeys.has(key) && safety < 40);
+    state.askedQuestionKeys.add(key);
 
     currentOperands = [a,b];
     els.d1.innerText = Math.floor(a/10) || '';
@@ -1002,6 +1014,8 @@
       userAnswer: skipped ? -1 : (answer ?? ''),
       isCorrect: Boolean(isCorrect),
       wasTimedOut: Boolean(timedOut),
+      wasSkipped: Boolean(skipped),
+      wasAbandoned: false,
       timeMs: totalMs,
       thinkTimeMs: thinkMs,
       writeTimeMs: writeMs,
@@ -1088,20 +1102,23 @@
       lowScoreThreshold: ({ add:45, sub:45, mul:50, challenge:48 }[adaptiveType] || 45)
     };
 
-    const opResults = getResultsForKey(adaptiveType, false);
-    opResults.push(resultEntry);
-    if(opResults.length > ADAPTIVE_WINDOW_SIZE){ opResults.shift(); }
+    const skipFastHold = Boolean(payload.wasSkipped) && Number(payload.totalTimeMs || 0) <= 10000;
+    if(!skipFastHold){
+      const opResults = getResultsForKey(adaptiveType, false);
+      opResults.push(resultEntry);
+      if(opResults.length > ADAPTIVE_WINDOW_SIZE){ opResults.shift(); }
 
-    if(type === 'challenge'){
-      const challengeResults = getResultsForKey('challenge', false);
-      challengeResults.push({ ...resultEntry, skillProfile: payload.skillProfile || null });
-      if(challengeResults.length > ADAPTIVE_WINDOW_SIZE){ challengeResults.shift(); }
-    }
+      if(type === 'challenge'){
+        const challengeResults = getResultsForKey('challenge', false);
+        challengeResults.push({ ...resultEntry, skillProfile: payload.skillProfile || null });
+        if(challengeResults.length > ADAPTIVE_WINDOW_SIZE){ challengeResults.shift(); }
+      }
 
-    if(payload.skillProfile){
-      const skillResults = getResultsForKey(payload.skillProfile, true);
-      skillResults.push(resultEntry);
-      if(skillResults.length > ADAPTIVE_WINDOW_SIZE){ skillResults.shift(); }
+      if(payload.skillProfile){
+        const skillResults = getResultsForKey(payload.skillProfile, true);
+        skillResults.push(resultEntry);
+        if(skillResults.length > ADAPTIVE_WINDOW_SIZE){ skillResults.shift(); }
+      }
     }
 
     const agg = state.categoryAggregates[type] || { attempts:0, correct:0, wrong:0, highScore:0, scoreSum:0 };
@@ -1111,9 +1128,11 @@
     agg.highScore = Math.max(agg.highScore, Number(payload.responseScore || 0));
     state.categoryAggregates[type] = agg;
 
-    adjustDifficultyProfile(adaptiveType);
-    if(payload.skillProfile){ adjustDifficultyProfile(payload.skillProfile, true); }
-    if(payload.mode === 'challenge'){ adjustDifficultyProfile('challenge'); }
+    if(!skipFastHold){
+      adjustDifficultyProfile(adaptiveType);
+      if(payload.skillProfile){ adjustDifficultyProfile(payload.skillProfile, true); }
+      if(payload.mode === 'challenge'){ adjustDifficultyProfile('challenge'); }
+    }
     payload.masteryScoreAfter = Number(getMasteryProfile(adaptiveType).masteryScore || payload.masteryScoreBefore || 0);
     saveAdaptiveProfile(state.playerId);
 
@@ -1167,9 +1186,10 @@
     const avgScore = state.currentCategory.scoreSum / attempts;
     const grade = Math.round((accuracy * 0.6) + (avgScore * 0.4));
     let message = '¡Sigue practicando! Cada intento te hace más fuerte.';
-    if(grade >= 90){ message = '🌟 ¡Excelente! Tienes gran dominio matemático.'; }
-    else if(grade >= 75){ message = '👏 ¡Muy bien! Vas por muy buen camino.'; }
-    else if(grade >= 60){ message = '💪 Buen avance. Un poco más y serás imparable.'; }
+    if(grade >= 90){ message = '🌟 ¡Excelente! Resuelves muy bien; para perfeccionar tu calificación, mejora un poco tus tiempos de respuesta.'; }
+    else if(grade >= 75){ message = '👏 ¡Muy bien! Vas por gran camino; con respuestas un poco más rápidas subirás aún más tu calificación.'; }
+    else if(grade >= 60){ message = '💪 Buen avance. Si mejoras velocidad y precisión, tu calificación crecerá rápidamente.'; }
+    else { message = '🧠 Buen esfuerzo. Sigue practicando y mejora tus tiempos para lograr una mejor calificación.'; }
     return { grade, message };
   }
 
@@ -1180,6 +1200,81 @@
     els.finalOverlay.classList.remove('hidden');
   }
 
+  function buildAbandonedAttemptPayload(position){
+    const lvl = getCurrentLevel() || { name:'general', type:'general' };
+    const adaptiveType = lvl.type === 'challenge' ? currentOperationType : lvl.type;
+    return {
+      sessionId: state.sessionId,
+      attemptNumber: state.totalAttempts,
+      question: `Abandono (${position}/${lvl.questions})`,
+      expectedAnswer: null,
+      userAnswer: '',
+      isCorrect: false,
+      wasTimedOut: false,
+      wasSkipped: false,
+      wasAbandoned: true,
+      timeMs: 16000,
+      thinkTimeMs: 8000,
+      writeTimeMs: 0,
+      totalTimeMs: 16000,
+      difficulty: lvl.name,
+      difficultyLabel: 'abandono',
+      difficultyScore: Number(currentQuestionMeta.difficultyScore || 1),
+      itemDifficulty: Number(currentQuestionMeta.difficultyScore || 1),
+      skillProfile: currentQuestionMeta.profile || null,
+      itemSkillProfile: currentQuestionMeta.profile || null,
+      masteryScoreBefore: Number(getMasteryProfile(adaptiveType).masteryScore || 0),
+      masteryScoreAfter: Number(getMasteryProfile(adaptiveType).masteryScore || 0),
+      recommendedTier: getDifficultyTier(adaptiveType),
+      mode: lvl.type,
+      operationType: adaptiveType,
+      operands: currentOperands || [],
+      totalAttempts: state.totalAttempts,
+      correct: state.totalCorrect,
+      wrong: state.totalWrong,
+      durationMs: Date.now() - state.sessionStartedAt,
+      points: state.points,
+      responseScore: 0,
+      editsCount: 0,
+      inputErrors: 0,
+      hintsUsed: 0,
+      inputLengthChanges: [],
+      timeShown: nowIso(),
+      firstInputTime: nowIso(),
+      submitTime: nowIso(),
+      responseValue: '',
+      studentId: state.playerId,
+      problemId: `${lvl.type}_abandono_${position}`,
+      modelVersion: config.modelVersion,
+      device: { type:'web' },
+      deviceType: 'web',
+      clientDate: nowIso(),
+      currentStreak: state.stats.correctStreak,
+      bestStreak: state.stats.bestStreak,
+      recentAttempts: Math.min((getResultsForKey(adaptiveType, false) || []).length, 10),
+      recentCorrect: (getResultsForKey(adaptiveType, false) || []).slice(-10).filter((item)=>item.correct).length,
+      recentTimeMs: (getResultsForKey(adaptiveType, false) || []).slice(-10).reduce((sum, item)=> sum + (item.totalTimeSec * 1000), 0),
+      challengeType: lvl.type === 'challenge' ? adaptiveType : null
+    };
+  }
+
+  function completePendingAsAbandoned(reason = 'Categoría abandonada'){
+    const lvl = getCurrentLevel();
+    if(!lvl){ return; }
+    const pending = Math.max(0, lvl.questions - state.questionCount);
+    if(pending <= 0){ return; }
+    for(let i=0; i<pending; i++){
+      state.totalAttempts++;
+      state.totalWrong++;
+      state.questionCount++;
+      state.currentCategory.attempts++;
+      const payload = buildAbandonedAttemptPayload(state.questionCount);
+      registerAttempt(payload);
+    }
+    els.mensaje.innerText = `${reason}. Se registró como ${state.currentCategory.correct}/${lvl.questions} con etiqueta de abandono.`;
+    saveLocal();
+  }
+
   function handleTimeLimit(){
     const lvl = getCurrentLevel();
     if(!lvl || state.time < lvl.timeLimitSec){ return; }
@@ -1188,15 +1283,10 @@
   }
 
   function applyWrongAnswer(message, skipped = false, timedOut = false){
-    const lostIndex = state.lives - 1;
-    state.lives--;
-    state.attemptsLeft--;
     state.totalWrong++;
     state.totalAttempts++;
 
     sBad.currentTime = 0; sBad.play().catch(()=>{});
-    sLifeLost.currentTime = 0; sLifeLost.play().catch(()=>{});
-    updateHearts(lostIndex);
     els.mensaje.innerText = message;
     state.points = Math.max(0, state.points - 2);
 
@@ -1208,22 +1298,14 @@
     });
 
     state.currentCategory.attempts++;
+    state.questionCount++;
     registerAttempt(attemptPayload);
 
-    if(state.attemptsLeft <= 0){
-      els.mensaje.innerText += ' — Reinicio de oportunidades de la categoría.';
-      state.questionCount = 0;
-      state.attemptsLeft = getCurrentLevel().attempts;
-    }
-
-    if(state.lives <= 0){
-      clearInterval(state.timer);
-      els.mensaje.innerText = '💥 Te quedaste sin vidas. Elige categoría para volver a empezar.';
-      resetCategoryView('💥 Te quedaste sin vidas. Elige categoría para volver a empezar.');
+    updateHUD();
+    if(state.questionCount >= getCurrentLevel().questions){
+      showFinalCategoryScreen();
       return;
     }
-
-    updateHUD();
     saveLocal();
     scheduleNextQuestion();
   }
@@ -1262,7 +1344,6 @@
       els.mensaje.innerText = `✅ Correcto! +${gained} pts · Score ${attemptPayload.responseScore}`;
 
       if(state.questionCount >= getCurrentLevel().questions){
-        resetCategoryView('Categoría completada. Puedes elegir una nueva.');
         showFinalCategoryScreen();
         return;
       }
@@ -1289,26 +1370,45 @@
     clearInterval(state.timer);
     state.skipsRemaining -= 1;
     state.isReadyToAnswer = false;
-    els.mensaje.innerText = `⏭ Reactivo omitido sin penalización. Te quedan ${state.skipsRemaining} saltos.`;
+    const skipTimeMs = Math.max(0, (state.currentMetrics?.submit_time_ms || Date.now()) - (state.currentMetrics?.time_shown_ms || Date.now()));
+    const fastSkip = skipTimeMs <= 10000;
+    state.totalWrong++;
+    state.totalAttempts++;
+    state.questionCount++;
+    state.currentCategory.attempts++;
+    const attemptPayload = buildAttemptPayload({ answer:null, isCorrect:false, skipped:true, timedOut:false });
+    attemptPayload.totalTimeMs = skipTimeMs;
+    attemptPayload.timeMs = skipTimeMs;
+    attemptPayload.thinkTimeMs = skipTimeMs;
+    attemptPayload.writeTimeMs = 0;
+    attemptPayload.responseScore = 0;
+    registerAttempt(attemptPayload);
+    els.mensaje.innerText = fastSkip
+      ? `⏭ Reactivo omitido rápido. La dificultad se mantiene. Te quedan ${state.skipsRemaining} saltos.`
+      : `⏭ Reactivo omitido tras intentarlo. La dificultad puede bajar. Te quedan ${state.skipsRemaining} saltos.`;
     setGameControlsEnabled(false);
     els.panelOperacion.classList.add('disabled-panel');
     setDefaultInput();
     syncPresence({ currentQuestion: 'Reactivo omitido', currentResponseDraft: '', skipsRemaining: state.skipsRemaining }).catch(()=>{});
     updateSkipCounter();
+    if(state.questionCount >= getCurrentLevel().questions){
+      showFinalCategoryScreen();
+      return;
+    }
+    saveLocal();
     scheduleNextQuestion(700);
   }
 
   function chooseCategory(levelIndex){
     state.levelIndex = levelIndex;
     state.questionCount = 0;
-    state.attemptsLeft = getCurrentLevel().attempts;
-    state.lives = config.maxLives;
     state.hasStarted = false;
     state.isPaused = false;
     state.skipsRemaining = 2;
     state.sessionId = buildSessionId(getCurrentLevel().type);
     state.sessionStartedAt = Date.now();
     state.currentCategory = { attempts:0, correct:0, scoreSum:0 };
+    state.askedQuestionKeys = new Set();
     const t = getCurrentLevel().type;
     if(!state.categoryAggregates[t]){ state.categoryAggregates[t] = { attempts:0, correct:0, wrong:0, highScore:0, scoreSum:0 }; }
     els.categoryMenu.classList.add('hidden');
@@ -1408,7 +1508,10 @@
   els.btnAbortCategory && els.btnAbortCategory.addEventListener('click', abortCurrentCategory);
   els.btnResumePause && els.btnResumePause.addEventListener('click', resumeGame);
   document.querySelectorAll('.category-btn').forEach((btn)=> btn.addEventListener('click', ()=> chooseCategory(Number(btn.dataset.level))));
-  els.btnFinalContinue && els.btnFinalContinue.addEventListener('click', ()=> els.finalOverlay.classList.add('hidden'));
+  els.btnFinalContinue && els.btnFinalContinue.addEventListener('click', ()=>{
+    els.finalOverlay.classList.add('hidden');
+    resetCategoryView('Categoría completada. Puedes elegir una nueva.');
+  });
   els.btnMissionContinue && els.btnMissionContinue.addEventListener('click', ()=> els.missionCongratsOverlay.classList.add('hidden'));
   els.btnOpenMedals && els.btnOpenMedals.addEventListener('click', ()=>{ renderMedalsHistory(); els.medalsOverlay.classList.remove('hidden'); });
   els.btnCloseMedals && els.btnCloseMedals.addEventListener('click', ()=> els.medalsOverlay.classList.add('hidden'));
@@ -1420,6 +1523,17 @@
   }
   state.playerId = cachedPlayerId;
   state.adaptiveProfiles = loadAdaptiveProfile(cachedPlayerId);
+  const cachedProgress = window.AppStorage && typeof window.AppStorage.load === 'function' ? window.AppStorage.load(cachedPlayerId) : null;
+  if(cachedProgress){
+    state.points = Number(cachedProgress.points || 0);
+    state.xp = Number(cachedProgress.xp || 0);
+    state.xpTarget = Number(cachedProgress.xpTarget || 100);
+    state.totalAttempts = Number(cachedProgress.totalAttempts || 0);
+    state.totalCorrect = Number(cachedProgress.totalCorrect || 0);
+    state.totalWrong = Number(cachedProgress.totalWrong || 0);
+    state.stats.correctStreak = Number(cachedProgress.currentStreak || 0);
+    state.stats.bestStreak = Number(cachedProgress.bestStreak || 0);
+  }
   updateSelectedPlayerBadge();
 
   setupInputTracking();
