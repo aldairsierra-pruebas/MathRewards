@@ -323,6 +323,8 @@ async function saveAttempt(payload) {
     userAnswer: payload.userAnswer ?? 0,
     isCorrect: Boolean(payload.isCorrect),
     wasTimedOut: Boolean(payload.wasTimedOut),
+    wasSkipped: Boolean(payload.wasSkipped),
+    wasAbandoned: Boolean(payload.wasAbandoned),
     timeMs: payload.timeMs || 0,
     thinkTimeMs: payload.thinkTimeMs || 0,
     writeTimeMs: payload.writeTimeMs || 0,

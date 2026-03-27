@@ -1,5 +1,27 @@
 window.AppStorage = (function(){
+  const PROGRESS_KEY = 'math_rewards_progress';
+
+  function readAllProgress(){
+    try{
+      return JSON.parse(localStorage.getItem(PROGRESS_KEY) || '{}');
+    }catch(_e){
+      return {};
+    }
+  }
+
+  function writeAllProgress(value){
+    try{
+      localStorage.setItem(PROGRESS_KEY, JSON.stringify(value || {}));
+    }catch(e){
+      console.warn('local progress save failed', e);
+    }
+  }
+
   async function save(obj){
+    const playerId = obj?.playerId || (window.FirebasePlaceholder && typeof window.FirebasePlaceholder.getActivePlayer === 'function' ? window.FirebasePlaceholder.getActivePlayer() : 'anon');
+    const all = readAllProgress();
+    all[playerId] = { ...obj, savedAt: new Date().toISOString() };
+    writeAllProgress(all);
     if(window.FirebasePlaceholder && typeof window.FirebasePlaceholder.save === 'function'){
       try {
         await window.FirebasePlaceholder.save('progress', obj);
@@ -19,8 +41,10 @@ window.AppStorage = (function(){
     }
   }
 
-  function load(){
-    return null;
+  function load(playerId){
+    const target = playerId || (window.FirebasePlaceholder && typeof window.FirebasePlaceholder.getActivePlayer === 'function' ? window.FirebasePlaceholder.getActivePlayer() : 'anon');
+    const all = readAllProgress();
+    return all[target] || null;
   }
 
   async function syncPlayersUI(){
