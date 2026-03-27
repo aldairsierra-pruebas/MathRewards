@@ -54,7 +54,6 @@ window.AppStorage = (function(){
 
     status.innerText = 'Sincronizando jugadores con Firestore...';
     try{
-      await window.FirebasePlaceholder.ensureDefaultPlayers();
       const players = await window.FirebasePlaceholder.listPlayers();
       select.innerHTML = '';
       players.forEach((p)=>{
@@ -71,7 +70,7 @@ window.AppStorage = (function(){
       if(!exists && select.value){
         window.FirebasePlaceholder.setActivePlayer(select.value);
       }
-      status.innerText = `Jugador activo: ${window.FirebasePlaceholder.getActivePlayer()}`;
+      status.innerText = players.length ? `Jugador activo: ${window.FirebasePlaceholder.getActivePlayer()}` : 'No hay jugadores. Crea uno desde monitor.';
     }catch(e){
       console.warn(e);
       status.innerText = 'No se pudo leer Firestore.';

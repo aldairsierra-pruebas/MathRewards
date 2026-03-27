@@ -1452,7 +1452,6 @@
     const syncPlayers = async ()=>{
       try {
         if(window.FirebasePlaceholder){
-          await window.FirebasePlaceholder.ensureDefaultPlayers();
           const players = await window.FirebasePlaceholder.listPlayers();
           els.overlayPlayerSelect.innerHTML = '';
           players.forEach((p)=>{
@@ -1463,6 +1462,10 @@
           });
           const active = window.FirebasePlaceholder.getActivePlayer();
           els.overlayPlayerSelect.value = players.some((p)=>p.id===active) ? active : (players[0]?.id || '');
+          if(!players.length){
+            els.overlayStatus.innerText = 'No hay jugadores disponibles. Crea uno desde monitor.';
+            return;
+          }
         } else {
           els.overlayPlayerSelect.innerHTML = '';
         }

@@ -28,13 +28,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const DEFAULT_PLAYERS = [
-  { id: 'Isaac', displayName: 'Isaac', avatar: 'robot-1' },
-  { id: 'Mateo', displayName: 'Mateo', avatar: 'robot-2' },
-  { id: 'Pruebas', displayName: 'Pruebas', avatar: 'robot-3' },
-  { id: 'Invitado', displayName: 'Invitado', avatar: 'robot-5' }
-];
-
 const ACTIVE_PLAYER_STORAGE_KEY = 'misiones_active_player';
 const ACTIVE_PLAYER_TTL_MS = 2 * 24 * 60 * 60 * 1000; // 2 días
 
@@ -61,7 +54,7 @@ function getStoredActivePlayer() {
   }
 }
 
-let activePlayerId = getStoredActivePlayer() || DEFAULT_PLAYERS[0].id;
+let activePlayerId = getStoredActivePlayer() || '';
 
 function makeSessionId() {
   const d = new Date();
@@ -123,28 +116,7 @@ function toSortMs(data) {
 }
 
 async function ensureDefaultPlayers() {
-  for (const player of DEFAULT_PLAYERS) {
-    const ref = doc(db, 'players', player.id);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) {
-      await setDoc(ref, {
-        displayName: player.displayName,
-        avatar: player.avatar,
-        active: true,
-        createdAt: serverTimestamp()
-      });
-      await setDoc(doc(db, 'players', player.id, 'stats', 'summary'), {
-        totalAttempts: 0,
-        totalCorrect: 0,
-        totalWrong: 0,
-        totalTimeMs: 0,
-        bestStreak: 0,
-        currentStreak: 0,
-        lastPlayedAt: serverTimestamp(),
-        rankPoints: 0
-      });
-    }
-  }
+  return true;
 }
 
 async function listPlayers() {
