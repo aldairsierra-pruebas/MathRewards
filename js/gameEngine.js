@@ -5,7 +5,8 @@
       { id:1, name:'Sumas', type:'add', questions:10, attempts:3, timeLimitSec:60 },
       { id:2, name:'Restas', type:'sub', questions:10, attempts:3, timeLimitSec:60 },
       { id:3, name:'Multiplicaciones', type:'mul', questions:10, attempts:3, timeLimitSec:60 },
-      { id:4, name:'Desafío', type:'challenge', questions:10, attempts:3, timeLimitSec:75 }
+      { id:4, name:'Desafío', type:'challenge', questions:10, attempts:3, timeLimitSec:75 },
+      { id:5, name:'Procedimiento en papel', type:'school_process', questions:10, attempts:3, timeLimitSec:90 }
     ],
     basePoints: 10,
     maxLives: 3,
@@ -81,14 +82,14 @@
       fast10Streak:0,
       fast8Streak:0,
       turboTimes:[],
-      correctByType:{ add:0, sub:0, mul:0, challenge:0 },
+      correctByType:{ add:0, sub:0, mul:0, challenge:0, school_process:0 },
       attemptsCount:0,
       bestStreak:0
     },
     activeMissions: [],
     remoteMissions: [],
     currentCategory: { attempts:0, correct:0, scoreSum:0 },
-    categoryAggregates: { add:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, sub:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, mul:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, challenge:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0} },
+    categoryAggregates: { add:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, sub:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, mul:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, challenge:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, school_process:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0} },
     medalHistory: [],
     presenceHeartbeatId:null,
     askedQuestionKeys: new Set()
@@ -114,7 +115,8 @@
     insWeekPoints: document.getElementById('insWeekPoints'), insWeekCorrect: document.getElementById('insWeekCorrect'), insDailyHigh: document.getElementById('insDailyHigh'), insWeekSessions: document.getElementById('insWeekSessions'),
     insByCategory: document.getElementById('insByCategory'), insAchievements: document.getElementById('insAchievements'),
     btnOpenMedals: document.getElementById('btnOpenMedals'), medalCount: document.getElementById('medalCount'), medalsOverlay: document.getElementById('medalsOverlay'),
-    medalsHistoryList: document.getElementById('medalsHistoryList'), btnCloseMedals: document.getElementById('btnCloseMedals'), selectedPlayerBadge: document.getElementById('selectedPlayerBadge')
+    medalsHistoryList: document.getElementById('medalsHistoryList'), btnCloseMedals: document.getElementById('btnCloseMedals'), selectedPlayerBadge: document.getElementById('selectedPlayerBadge'),
+    processHint: document.getElementById('processHint')
   };
 
   let currentAnswer = 0;
@@ -376,9 +378,9 @@
 
     if(els.insByCategory){
       const byCat = insights.byCategory || {};
-      const labels = { add:'Sumas', sub:'Restas', mul:'Multiplicaciones', challenge:'Desafío' };
+      const labels = { add:'Sumas', sub:'Restas', mul:'Multiplicaciones', challenge:'Desafío', school_process:'Procedimiento en papel' };
       const rows = Object.entries(byCat)
-        .filter(([k])=>['add','sub','mul','challenge'].includes(k))
+        .filter(([k])=>['add','sub','mul','challenge','school_process'].includes(k))
         .map(([k,v])=>`${labels[k]}: ${v.correct || 0}/${v.attempts || 0} · HS ${v.highScore || 0} · Avg ${v.avgResponseScore || 0}`);
       els.insByCategory.innerHTML = rows.length ? rows.map((r)=>`<div>${r}</div>`).join('') : 'Sin datos';
     }
@@ -393,7 +395,7 @@
     }
 
     const fromDb = insights.byCategory || {};
-    ['add','sub','mul','challenge'].forEach((k)=>{
+    ['add','sub','mul','challenge','school_process'].forEach((k)=>{
       const d = fromDb[k] || {};
       state.categoryAggregates[k] = {
         attempts: Number(d.attempts || 0),
@@ -548,6 +550,7 @@
     els.countdown.innerText = '';
     els.panelOperacion.classList.remove('hidden');
     els.panelOperacion.classList.add('disabled-panel');
+    if(els.processHint) els.processHint.classList.add('hidden');
     els.gameArea.classList.add('hidden');
     els.categoryMenu.classList.remove('hidden');
     els.btnIniciar.style.display = 'inline-block';
@@ -854,6 +857,17 @@
     const builders = { add: buildAdditionQuestion, sub: buildSubtractionQuestion, mul: buildMultiplicationQuestion };
     return { tier, generator: builders[type], preferredProfile: chooseSkillProfileForType(type, tier) };
   }
+
+  function getSchoolProcessPlan(){
+    const sequence = [
+      { key:'add_with_carry', type:'add', tier:2, title:'Suma con llevada', checklist:'1) Alinea unidades/decenas. 2) Suma unidades y anota la llevada. 3) Suma decenas + llevada.' },
+      { key:'sub_with_borrow', type:'sub', tier:2, title:'Resta con préstamo', checklist:'1) Alinea cifras. 2) Si no alcanza, pide préstamo a la columna siguiente. 3) Resta unidades y luego decenas.' },
+      { key:'mul_two_digit', type:'mul', tier:4, title:'Multiplicación de dos dígitos', checklist:'1) Multiplica por unidades. 2) Multiplica por decenas y recorre un lugar. 3) Suma parciales.' }
+    ];
+    const index = Math.min(sequence.length - 1, Math.floor(state.questionCount / 3));
+    return sequence[index];
+  }
+
   function beginQuestionInteraction(){
     if(state.isPaused){ return; }
     state.isReadyToAnswer = true;
@@ -889,6 +903,18 @@
         currentQuestionMeta = { profile: challenge.profile, label: `${challenge.label}`, difficultyScore: challenge.difficultyScore, challengeWeights: challenge.challengeWeights || null };
         els.signo.innerText = challenge.sign;
         currentQuestionLabel = challenge.label;
+      } else if(lvl.type === 'school_process'){
+        const plan = getSchoolProcessPlan();
+        const bounds = getAdaptiveBounds(plan.type);
+        currentOperationType = plan.type;
+        const preferredByPlan = ({ add_with_carry:'add_with_carry', sub_with_borrow:'sub_with_borrow', mul_two_digit:'mul_two_digit' })[plan.key] || bounds.preferredProfile;
+        question = bounds.generator(Math.max(plan.tier, bounds.tier), preferredByPlan);
+        a = question.a;
+        b = question.b;
+        currentAnswer = question.answer;
+        currentQuestionMeta = { profile: plan.key, label: `${plan.title}`, difficultyScore: Math.min(6, Number(question.difficultyScore || 1) + 1) };
+        els.signo.innerText = question.sign;
+        currentQuestionLabel = `${question.labelText} · ${plan.title}`;
       } else {
         const bounds = getAdaptiveBounds(lvl.type);
         currentOperationType = lvl.type;
@@ -921,6 +947,16 @@
       els.panelOperacion.classList.add('disabled-panel');
       els.btnIniciar.style.display = 'inline-block';
       els.btnIniciar.disabled = false;
+    }
+
+    if(els.processHint){
+      if(lvl.type === 'school_process'){
+        const plan = getSchoolProcessPlan();
+        els.processHint.classList.remove('hidden');
+        els.processHint.innerText = `📝 ${plan.title}: ${plan.checklist}`;
+      } else {
+        els.processHint.classList.add('hidden');
+      }
     }
 
     updateHUD();
@@ -992,9 +1028,10 @@
     const writeMs = Math.max(0, metrics.submit_time_ms - firstMs);
     const totalMs = Math.max(0, metrics.submit_time_ms - metrics.time_shown_ms);
     const difficulty = deriveDifficulty();
-    const masteryProfileBefore = getMasteryProfile(lvl.type === 'challenge' ? currentOperationType : lvl.type);
+    const adaptiveModeType = (lvl.type === 'challenge' || lvl.type === 'school_process') ? currentOperationType : lvl.type;
+    const masteryProfileBefore = getMasteryProfile(adaptiveModeType);
     const masteryScoreBefore = Number(masteryProfileBefore.masteryScore || 0);
-    const recommendedTier = getDifficultyTier(lvl.type === 'challenge' ? currentOperationType : lvl.type);
+    const recommendedTier = getDifficultyTier(adaptiveModeType);
     const responseScore = scoreResponse(Boolean(isCorrect), difficulty.itemDifficulty, totalMs/1000, writeMs/1000, metrics.edits_count, currentOperationType);
     const categoryKey = lvl.type;
     const currentAggregate = state.categoryAggregates[categoryKey] || { attempts:0, correct:0, wrong:0, highScore:0, scoreSum:0 };
@@ -1087,7 +1124,7 @@
     }
 
     const type = payload.mode;
-    const adaptiveType = payload.mode === 'challenge' && payload.operationType ? payload.operationType : type;
+    const adaptiveType = ((payload.mode === 'challenge' || payload.mode === 'school_process') && payload.operationType) ? payload.operationType : type;
     const resultEntry = {
       correct: payload.isCorrect,
       totalTimeSec: payload.totalTimeMs / 1000,
@@ -1202,7 +1239,7 @@
 
   function buildAbandonedAttemptPayload(position){
     const lvl = getCurrentLevel() || { name:'general', type:'general' };
-    const adaptiveType = lvl.type === 'challenge' ? currentOperationType : lvl.type;
+    const adaptiveType = (lvl.type === 'challenge' || lvl.type === 'school_process') ? currentOperationType : lvl.type;
     return {
       sessionId: state.sessionId,
       attemptNumber: state.totalAttempts,
