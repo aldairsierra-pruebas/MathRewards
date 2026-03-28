@@ -102,7 +102,7 @@
   const sNextQuestion = new Audio('https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg');
 
   const els = {
-    d1: document.getElementById('d1'), u1: document.getElementById('u1'), d2: document.getElementById('d2'), u2: document.getElementById('u2'), signo: document.getElementById('signo'),
+    c1: document.getElementById('c1'), d1: document.getElementById('d1'), u1: document.getElementById('u1'), c2: document.getElementById('c2'), d2: document.getElementById('d2'), u2: document.getElementById('u2'), signo: document.getElementById('signo'),
     respuesta: document.getElementById('respuesta'), btn: document.getElementById('btnResponder'), btnSkip: document.getElementById('btnSkip'), btnPause: document.getElementById('btnPause'), btnIniciar: document.getElementById('btnIniciar'), btnAbortCategory: document.getElementById('btnAbortCategory'),
     puntos: document.getElementById('puntos'), vidas: document.getElementById('vidas'), vidasUI: document.getElementById('vidasUI'), tiempo: document.getElementById('tiempo'),
     nivelTxt: document.getElementById('nivelTxt'), categoriaTxt: document.getElementById('categoriaTxt'), progresoNivelFill: document.getElementById('progresoNivelFill'),
@@ -116,7 +116,7 @@
     insByCategory: document.getElementById('insByCategory'), insAchievements: document.getElementById('insAchievements'),
     btnOpenMedals: document.getElementById('btnOpenMedals'), medalCount: document.getElementById('medalCount'), medalsOverlay: document.getElementById('medalsOverlay'),
     medalsHistoryList: document.getElementById('medalsHistoryList'), btnCloseMedals: document.getElementById('btnCloseMedals'), selectedPlayerBadge: document.getElementById('selectedPlayerBadge'),
-    processHint: document.getElementById('processHint')
+    processHint: document.getElementById('processHint'), lineCell: document.getElementById('lineCell'), answerCell: document.getElementById('answerCell')
   };
 
   let currentAnswer = 0;
@@ -600,6 +600,32 @@
 
   function randomFrom(items){ return items[rand(0, items.length - 1)]; }
 
+  function getDigitValue(value, place){
+    if(place === 'u') return Math.abs(value) % 10;
+    if(place === 'd') return Math.floor(Math.abs(value) / 10) % 10;
+    return Math.floor(Math.abs(value) / 100) % 10;
+  }
+
+  function renderColumnOperation(a, b){
+    const needsHundreds = Math.abs(a) >= 100 || Math.abs(b) >= 100;
+    const needsTens = Math.abs(a) >= 10 || Math.abs(b) >= 10 || needsHundreds;
+    const visibleCols = 1 + (needsHundreds ? 3 : (needsTens ? 2 : 1)); // sign + digits
+    if(els.lineCell) els.lineCell.colSpan = visibleCols;
+    if(els.answerCell) els.answerCell.colSpan = visibleCols;
+
+    const showHundreds = (cell)=> cell && cell.classList.toggle('digit-hidden', !needsHundreds);
+    const showTens = (cell)=> cell && cell.classList.toggle('digit-hidden', !needsTens);
+    showHundreds(els.c1); showHundreds(els.c2);
+    showTens(els.d1); showTens(els.d2);
+
+    if(els.c1) els.c1.innerText = needsHundreds ? getDigitValue(a, 'c') : '';
+    if(els.c2) els.c2.innerText = needsHundreds ? getDigitValue(b, 'c') : '';
+    if(els.d1) els.d1.innerText = needsTens ? getDigitValue(a, 'd') : '';
+    if(els.d2) els.d2.innerText = needsTens ? getDigitValue(b, 'd') : '';
+    if(els.u1) els.u1.innerText = getDigitValue(a, 'u');
+    if(els.u2) els.u2.innerText = getDigitValue(b, 'u');
+  }
+
 
   function getProfileType(skillProfile){
     return SKILL_TYPE_MAP[skillProfile] || 'challenge';
@@ -933,10 +959,7 @@
     state.askedQuestionKeys.add(key);
 
     currentOperands = [a,b];
-    els.d1.innerText = Math.floor(a/10) || '';
-    els.u1.innerText = a%10;
-    els.d2.innerText = Math.floor(b/10) || '';
-    els.u2.innerText = b%10;
+    renderColumnOperation(a,b);
     els.panelOperacion.classList.remove('hidden');
     setDefaultInput();
     state.currentMetrics = createQuestionMetrics();

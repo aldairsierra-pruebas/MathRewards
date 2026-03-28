@@ -38,6 +38,8 @@ body{font-family:Arial,Helvetica,sans-serif;margin:0;min-height:100vh;background
 .disabled-panel{opacity:.45;filter:grayscale(.25)}
 table{border-collapse:collapse;font-size:36px;font-weight:900}
 td{width:56px;text-align:right}
+.sign-col{width:34px;text-align:center}
+.digit-hidden{display:none}
 .linea{border-top:4px solid #13233d}
 #respuesta{width:180px;height:58px;font-size:38px;text-align:center;border-radius:10px;border:3px solid #13233d}
 .actions{display:flex;gap:8px;justify-content:center;margin-top:10px}
