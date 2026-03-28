@@ -52,7 +52,7 @@
               <button class="category-btn" data-level="1"><span class="symbol sub">－</span><span>Restas</span></button>
               <button class="category-btn" data-level="2"><span class="symbol mul">×</span><span>Multiplicaciones</span></button>
               <button class="category-btn" data-level="3"><span class="symbol mul">★</span><span>Desafío</span></button>
-              <button class="category-btn category-btn-process" data-level="4"><span class="symbol process">🧩</span><span>Paso a Paso Escolar</span></button>
+              <button class="category-btn category-btn-process" data-level="4"><span class="symbol process">🧩</span><span>Procedimiento en papel</span></button>
             </div>
           </section>
 
@@ -63,32 +63,8 @@
             </div>
 
             <div id="mensaje" class="mensaje"></div>
-            <div id="processCoach" class="process-coach hidden" aria-live="polite">
-              <h4>📘 Método de clase: completa los 3 pasos antes de responder</h4>
-              <div class="process-grid">
-                <div id="processStep1" class="process-step">
-                  <strong>Paso 1: Identifica la operación</strong>
-                  <div class="process-options">
-                    <label><input type="radio" name="processOperation" value="+"> Suma (+)</label>
-                    <label><input type="radio" name="processOperation" value="-"> Resta (-)</label>
-                    <label><input type="radio" name="processOperation" value="×"> Multiplicación (×)</label>
-                  </div>
-                  <button id="btnProcessOperation" type="button">Validar paso 1</button>
-                </div>
-                <div id="processStep2" class="process-step process-step-locked">
-                  <strong>Paso 2: Haz una estimación</strong>
-                  <p id="processEstimateHint">Escribe un resultado aproximado antes de calcular exacto.</p>
-                  <div class="process-estimate-row">
-                    <input id="processEstimateInput" inputmode="numeric" maxlength="4" placeholder="Aproximación">
-                    <button id="btnProcessEstimate" type="button">Validar paso 2</button>
-                  </div>
-                </div>
-                <div id="processStep3" class="process-step process-step-locked">
-                  <strong>Paso 3: Resuelve y responde</strong>
-                  <p>Cuando completes los pasos 1 y 2 se habilita responder.</p>
-                </div>
-              </div>
-            </div>
+            
+            <div id="processHint" class="process-hint hidden" aria-live="polite"></div>
 
             <div class="start-wrap">
               <button id="btnIniciar" class="btn-iniciar">Iniciar</button>

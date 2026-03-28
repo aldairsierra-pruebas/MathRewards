@@ -6,7 +6,7 @@
       { id:2, name:'Restas', type:'sub', questions:10, attempts:3, timeLimitSec:60 },
       { id:3, name:'Multiplicaciones', type:'mul', questions:10, attempts:3, timeLimitSec:60 },
       { id:4, name:'Desafío', type:'challenge', questions:10, attempts:3, timeLimitSec:75 },
-      { id:5, name:'Paso a Paso Escolar', type:'school_process', questions:8, attempts:3, timeLimitSec:90 }
+      { id:5, name:'Procedimiento en papel', type:'school_process', questions:10, attempts:3, timeLimitSec:90 }
     ],
     basePoints: 10,
     maxLives: 3,
@@ -116,8 +116,7 @@
     insByCategory: document.getElementById('insByCategory'), insAchievements: document.getElementById('insAchievements'),
     btnOpenMedals: document.getElementById('btnOpenMedals'), medalCount: document.getElementById('medalCount'), medalsOverlay: document.getElementById('medalsOverlay'),
     medalsHistoryList: document.getElementById('medalsHistoryList'), btnCloseMedals: document.getElementById('btnCloseMedals'), selectedPlayerBadge: document.getElementById('selectedPlayerBadge'),
-    processCoach: document.getElementById('processCoach'), processStep1: document.getElementById('processStep1'), processStep2: document.getElementById('processStep2'), processStep3: document.getElementById('processStep3'),
-    btnProcessOperation: document.getElementById('btnProcessOperation'), btnProcessEstimate: document.getElementById('btnProcessEstimate'), processEstimateInput: document.getElementById('processEstimateInput'), processEstimateHint: document.getElementById('processEstimateHint')
+    processHint: document.getElementById('processHint')
   };
 
   let currentAnswer = 0;
@@ -380,7 +379,7 @@
 
     if(els.insByCategory){
       const byCat = insights.byCategory || {};
-      const labels = { add:'Sumas', sub:'Restas', mul:'Multiplicaciones', challenge:'Desafío', school_process:'Paso a paso' };
+      const labels = { add:'Sumas', sub:'Restas', mul:'Multiplicaciones', challenge:'Desafío', school_process:'Procedimiento en papel' };
       const rows = Object.entries(byCat)
         .filter(([k])=>['add','sub','mul','challenge','school_process'].includes(k))
         .map(([k,v])=>`${labels[k]}: ${v.correct || 0}/${v.attempts || 0} · HS ${v.highScore || 0} · Avg ${v.avgResponseScore || 0}`);
@@ -552,7 +551,7 @@
     els.countdown.innerText = '';
     els.panelOperacion.classList.remove('hidden');
     els.panelOperacion.classList.add('disabled-panel');
-    if(els.processCoach) els.processCoach.classList.add('hidden');
+    if(els.processHint) els.processHint.classList.add('hidden');
     els.gameArea.classList.add('hidden');
     els.categoryMenu.classList.remove('hidden');
     els.btnIniciar.style.display = 'inline-block';
@@ -860,83 +859,14 @@
     return { tier, generator: builders[type], preferredProfile: chooseSkillProfileForType(type, tier) };
   }
 
-  function isSchoolProcessMode(){
-    const level = getCurrentLevel();
-    return Boolean(level && level.type === 'school_process');
-  }
-
-  function resetProcessCoach(){
-    processFlow = { active:isSchoolProcessMode(), selectedOperation:'', operationValidated:false, estimationValidated:false, estimatedValue:null, estimateBand:{ min:0, max:0 } };
-    if(!els.processCoach){ return; }
-    if(!processFlow.active){
-      els.processCoach.classList.add('hidden');
-      return;
-    }
-    els.processCoach.classList.remove('hidden');
-    if(els.processStep1) els.processStep1.className = 'process-step';
-    if(els.processStep2) els.processStep2.className = 'process-step process-step-locked';
-    if(els.processStep3) els.processStep3.className = 'process-step process-step-locked';
-    document.querySelectorAll('input[name="processOperation"]').forEach((input)=>{ input.checked = false; });
-    if(els.processEstimateInput){ els.processEstimateInput.value = ''; els.processEstimateInput.disabled = true; }
-    if(els.btnProcessEstimate){ els.btnProcessEstimate.disabled = true; }
-    if(els.processEstimateHint){ els.processEstimateHint.innerText = 'Escribe un resultado aproximado antes de calcular exacto.'; }
-  }
-
-  function setupProcessEstimateBand(){
-    if(!processFlow.active){ return; }
-    const tolerance = Math.max(4, Math.round(Math.abs(currentAnswer) * 0.25));
-    processFlow.estimateBand = { min: currentAnswer - tolerance, max: currentAnswer + tolerance };
-    if(els.processEstimateHint){
-      els.processEstimateHint.innerText = `Pista: una estimación razonable está entre ${processFlow.estimateBand.min} y ${processFlow.estimateBand.max}.`;
-    }
-  }
-
-  function validateProcessOperation(){
-    if(!processFlow.active){ return true; }
-    const selected = document.querySelector('input[name="processOperation"]:checked');
-    if(!selected){
-      els.mensaje.innerText = 'Paso 1: selecciona una operación antes de validar.';
-      return false;
-    }
-    processFlow.selectedOperation = selected.value;
-    if(processFlow.selectedOperation !== els.signo.innerText){
-      els.mensaje.innerText = 'Paso 1 incorrecto. Revisa el signo de la operación.';
-      return false;
-    }
-    processFlow.operationValidated = true;
-    if(els.processStep1) els.processStep1.className = 'process-step process-step-ok';
-    if(els.processStep2) els.processStep2.className = 'process-step';
-    if(els.processEstimateInput){ els.processEstimateInput.disabled = false; els.processEstimateInput.focus(); }
-    if(els.btnProcessEstimate){ els.btnProcessEstimate.disabled = false; }
-    setupProcessEstimateBand();
-    els.mensaje.innerText = '✅ Paso 1 completo. Ahora realiza la estimación.';
-    return true;
-  }
-
-  function validateProcessEstimate(){
-    if(!processFlow.active){ return true; }
-    if(!processFlow.operationValidated){
-      els.mensaje.innerText = 'Primero completa el paso 1.';
-      return false;
-    }
-    const value = Number(els.processEstimateInput?.value || NaN);
-    if(Number.isNaN(value)){
-      els.mensaje.innerText = 'Paso 2: escribe una estimación numérica.';
-      return false;
-    }
-    processFlow.estimatedValue = value;
-    const { min, max } = processFlow.estimateBand;
-    if(value < min || value > max){
-      els.mensaje.innerText = `Estimación fuera de rango. Intenta un valor entre ${min} y ${max}.`;
-      return false;
-    }
-    processFlow.estimationValidated = true;
-    if(els.processStep2) els.processStep2.className = 'process-step process-step-ok';
-    if(els.processStep3) els.processStep3.className = 'process-step process-step-ok';
-    setGameControlsEnabled(true);
-    updateSkipCounter();
-    els.mensaje.innerText = '✅ Paso 2 completo. Ya puedes resolver y responder.';
-    return true;
+  function getSchoolProcessPlan(){
+    const sequence = [
+      { key:'add_with_carry', type:'add', tier:2, title:'Suma con llevada', checklist:'1) Alinea unidades/decenas. 2) Suma unidades y anota la llevada. 3) Suma decenas + llevada.' },
+      { key:'sub_with_borrow', type:'sub', tier:2, title:'Resta con préstamo', checklist:'1) Alinea cifras. 2) Si no alcanza, pide préstamo a la columna siguiente. 3) Resta unidades y luego decenas.' },
+      { key:'mul_two_digit', type:'mul', tier:4, title:'Multiplicación de dos dígitos', checklist:'1) Multiplica por unidades. 2) Multiplica por decenas y recorre un lugar. 3) Suma parciales.' }
+    ];
+    const index = Math.min(sequence.length - 1, Math.floor(state.questionCount / 3));
+    return sequence[index];
   }
 
   function beginQuestionInteraction(){
@@ -975,16 +905,17 @@
         els.signo.innerText = challenge.sign;
         currentQuestionLabel = challenge.label;
       } else if(lvl.type === 'school_process'){
-        const schoolType = randomFrom(['add','sub','mul']);
-        const bounds = getAdaptiveBounds(schoolType);
-        currentOperationType = schoolType;
-        question = bounds.generator(Math.max(1, bounds.tier), bounds.preferredProfile);
+        const plan = getSchoolProcessPlan();
+        const bounds = getAdaptiveBounds(plan.type);
+        currentOperationType = plan.type;
+        const preferredByPlan = ({ add_with_carry:'add_with_carry', sub_with_borrow:'sub_with_borrow', mul_two_digit:'mul_two_digit' })[plan.key] || bounds.preferredProfile;
+        question = bounds.generator(Math.max(plan.tier, bounds.tier), preferredByPlan);
         a = question.a;
         b = question.b;
         currentAnswer = question.answer;
-        currentQuestionMeta = { profile: `${question.profile}_process`, label: `método escolar · ${question.label}`, difficultyScore: Math.min(6, Number(question.difficultyScore || 1) + 1) };
+        currentQuestionMeta = { profile: plan.key, label: `${plan.title}`, difficultyScore: Math.min(6, Number(question.difficultyScore || 1) + 1) };
         els.signo.innerText = question.sign;
-        currentQuestionLabel = `${question.labelText} · Paso a paso`;
+        currentQuestionLabel = `${question.labelText} · ${plan.title}`;
       } else {
         const bounds = getAdaptiveBounds(lvl.type);
         currentOperationType = lvl.type;
@@ -1018,6 +949,16 @@
       els.panelOperacion.classList.add('disabled-panel');
       els.btnIniciar.style.display = 'inline-block';
       els.btnIniciar.disabled = false;
+    }
+
+    if(els.processHint){
+      if(lvl.type === 'school_process'){
+        const plan = getSchoolProcessPlan();
+        els.processHint.classList.remove('hidden');
+        els.processHint.innerText = `📝 ${plan.title}: ${plan.checklist}`;
+      } else {
+        els.processHint.classList.add('hidden');
+      }
     }
 
     updateHUD();
