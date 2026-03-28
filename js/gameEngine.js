@@ -5,7 +5,8 @@
       { id:1, name:'Sumas', type:'add', questions:10, attempts:3, timeLimitSec:60 },
       { id:2, name:'Restas', type:'sub', questions:10, attempts:3, timeLimitSec:60 },
       { id:3, name:'Multiplicaciones', type:'mul', questions:10, attempts:3, timeLimitSec:60 },
-      { id:4, name:'Desafío', type:'challenge', questions:10, attempts:3, timeLimitSec:75 }
+      { id:4, name:'Desafío', type:'challenge', questions:10, attempts:3, timeLimitSec:75 },
+      { id:5, name:'Paso a Paso Escolar', type:'school_process', questions:8, attempts:3, timeLimitSec:90 }
     ],
     basePoints: 10,
     maxLives: 3,
@@ -81,14 +82,14 @@
       fast10Streak:0,
       fast8Streak:0,
       turboTimes:[],
-      correctByType:{ add:0, sub:0, mul:0, challenge:0 },
+      correctByType:{ add:0, sub:0, mul:0, challenge:0, school_process:0 },
       attemptsCount:0,
       bestStreak:0
     },
     activeMissions: [],
     remoteMissions: [],
     currentCategory: { attempts:0, correct:0, scoreSum:0 },
-    categoryAggregates: { add:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, sub:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, mul:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, challenge:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0} },
+    categoryAggregates: { add:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, sub:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, mul:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, challenge:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, school_process:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0} },
     medalHistory: [],
     presenceHeartbeatId:null,
     askedQuestionKeys: new Set()
@@ -114,7 +115,9 @@
     insWeekPoints: document.getElementById('insWeekPoints'), insWeekCorrect: document.getElementById('insWeekCorrect'), insDailyHigh: document.getElementById('insDailyHigh'), insWeekSessions: document.getElementById('insWeekSessions'),
     insByCategory: document.getElementById('insByCategory'), insAchievements: document.getElementById('insAchievements'),
     btnOpenMedals: document.getElementById('btnOpenMedals'), medalCount: document.getElementById('medalCount'), medalsOverlay: document.getElementById('medalsOverlay'),
-    medalsHistoryList: document.getElementById('medalsHistoryList'), btnCloseMedals: document.getElementById('btnCloseMedals'), selectedPlayerBadge: document.getElementById('selectedPlayerBadge')
+    medalsHistoryList: document.getElementById('medalsHistoryList'), btnCloseMedals: document.getElementById('btnCloseMedals'), selectedPlayerBadge: document.getElementById('selectedPlayerBadge'),
+    processCoach: document.getElementById('processCoach'), processStep1: document.getElementById('processStep1'), processStep2: document.getElementById('processStep2'), processStep3: document.getElementById('processStep3'),
+    btnProcessOperation: document.getElementById('btnProcessOperation'), btnProcessEstimate: document.getElementById('btnProcessEstimate'), processEstimateInput: document.getElementById('processEstimateInput'), processEstimateHint: document.getElementById('processEstimateHint')
   };
 
   let currentAnswer = 0;
@@ -122,6 +125,7 @@
   let currentOperands = [0,0];
   let currentOperationType = 'add';
   let currentQuestionMeta = { profile:'add_basic', label:'básica', difficultyScore:1 };
+  let processFlow = { active:false, selectedOperation:'', operationValidated:false, estimationValidated:false, estimatedValue:null, estimateBand:{ min:0, max:0 } };
 
   function rand(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
   function clamp(v,min=0,max=1){ return Math.max(min, Math.min(max, v)); }
@@ -376,9 +380,9 @@
 
     if(els.insByCategory){
       const byCat = insights.byCategory || {};
-      const labels = { add:'Sumas', sub:'Restas', mul:'Multiplicaciones', challenge:'Desafío' };
+      const labels = { add:'Sumas', sub:'Restas', mul:'Multiplicaciones', challenge:'Desafío', school_process:'Paso a paso' };
       const rows = Object.entries(byCat)
-        .filter(([k])=>['add','sub','mul','challenge'].includes(k))
+        .filter(([k])=>['add','sub','mul','challenge','school_process'].includes(k))
         .map(([k,v])=>`${labels[k]}: ${v.correct || 0}/${v.attempts || 0} · HS ${v.highScore || 0} · Avg ${v.avgResponseScore || 0}`);
       els.insByCategory.innerHTML = rows.length ? rows.map((r)=>`<div>${r}</div>`).join('') : 'Sin datos';
     }
@@ -393,7 +397,7 @@
     }
 
     const fromDb = insights.byCategory || {};
-    ['add','sub','mul','challenge'].forEach((k)=>{
+    ['add','sub','mul','challenge','school_process'].forEach((k)=>{
       const d = fromDb[k] || {};
       state.categoryAggregates[k] = {
         attempts: Number(d.attempts || 0),
@@ -548,6 +552,7 @@
     els.countdown.innerText = '';
     els.panelOperacion.classList.remove('hidden');
     els.panelOperacion.classList.add('disabled-panel');
+    if(els.processCoach) els.processCoach.classList.add('hidden');
     els.gameArea.classList.add('hidden');
     els.categoryMenu.classList.remove('hidden');
     els.btnIniciar.style.display = 'inline-block';
@@ -854,10 +859,90 @@
     const builders = { add: buildAdditionQuestion, sub: buildSubtractionQuestion, mul: buildMultiplicationQuestion };
     return { tier, generator: builders[type], preferredProfile: chooseSkillProfileForType(type, tier) };
   }
+
+  function isSchoolProcessMode(){
+    const level = getCurrentLevel();
+    return Boolean(level && level.type === 'school_process');
+  }
+
+  function resetProcessCoach(){
+    processFlow = { active:isSchoolProcessMode(), selectedOperation:'', operationValidated:false, estimationValidated:false, estimatedValue:null, estimateBand:{ min:0, max:0 } };
+    if(!els.processCoach){ return; }
+    if(!processFlow.active){
+      els.processCoach.classList.add('hidden');
+      return;
+    }
+    els.processCoach.classList.remove('hidden');
+    if(els.processStep1) els.processStep1.className = 'process-step';
+    if(els.processStep2) els.processStep2.className = 'process-step process-step-locked';
+    if(els.processStep3) els.processStep3.className = 'process-step process-step-locked';
+    document.querySelectorAll('input[name="processOperation"]').forEach((input)=>{ input.checked = false; });
+    if(els.processEstimateInput){ els.processEstimateInput.value = ''; els.processEstimateInput.disabled = true; }
+    if(els.btnProcessEstimate){ els.btnProcessEstimate.disabled = true; }
+    if(els.processEstimateHint){ els.processEstimateHint.innerText = 'Escribe un resultado aproximado antes de calcular exacto.'; }
+  }
+
+  function setupProcessEstimateBand(){
+    if(!processFlow.active){ return; }
+    const tolerance = Math.max(4, Math.round(Math.abs(currentAnswer) * 0.25));
+    processFlow.estimateBand = { min: currentAnswer - tolerance, max: currentAnswer + tolerance };
+    if(els.processEstimateHint){
+      els.processEstimateHint.innerText = `Pista: una estimación razonable está entre ${processFlow.estimateBand.min} y ${processFlow.estimateBand.max}.`;
+    }
+  }
+
+  function validateProcessOperation(){
+    if(!processFlow.active){ return true; }
+    const selected = document.querySelector('input[name="processOperation"]:checked');
+    if(!selected){
+      els.mensaje.innerText = 'Paso 1: selecciona una operación antes de validar.';
+      return false;
+    }
+    processFlow.selectedOperation = selected.value;
+    if(processFlow.selectedOperation !== els.signo.innerText){
+      els.mensaje.innerText = 'Paso 1 incorrecto. Revisa el signo de la operación.';
+      return false;
+    }
+    processFlow.operationValidated = true;
+    if(els.processStep1) els.processStep1.className = 'process-step process-step-ok';
+    if(els.processStep2) els.processStep2.className = 'process-step';
+    if(els.processEstimateInput){ els.processEstimateInput.disabled = false; els.processEstimateInput.focus(); }
+    if(els.btnProcessEstimate){ els.btnProcessEstimate.disabled = false; }
+    setupProcessEstimateBand();
+    els.mensaje.innerText = '✅ Paso 1 completo. Ahora realiza la estimación.';
+    return true;
+  }
+
+  function validateProcessEstimate(){
+    if(!processFlow.active){ return true; }
+    if(!processFlow.operationValidated){
+      els.mensaje.innerText = 'Primero completa el paso 1.';
+      return false;
+    }
+    const value = Number(els.processEstimateInput?.value || NaN);
+    if(Number.isNaN(value)){
+      els.mensaje.innerText = 'Paso 2: escribe una estimación numérica.';
+      return false;
+    }
+    processFlow.estimatedValue = value;
+    const { min, max } = processFlow.estimateBand;
+    if(value < min || value > max){
+      els.mensaje.innerText = `Estimación fuera de rango. Intenta un valor entre ${min} y ${max}.`;
+      return false;
+    }
+    processFlow.estimationValidated = true;
+    if(els.processStep2) els.processStep2.className = 'process-step process-step-ok';
+    if(els.processStep3) els.processStep3.className = 'process-step process-step-ok';
+    setGameControlsEnabled(true);
+    updateSkipCounter();
+    els.mensaje.innerText = '✅ Paso 2 completo. Ya puedes resolver y responder.';
+    return true;
+  }
+
   function beginQuestionInteraction(){
     if(state.isPaused){ return; }
     state.isReadyToAnswer = true;
-    setGameControlsEnabled(true);
+    setGameControlsEnabled(!isSchoolProcessMode());
     els.panelOperacion.classList.remove('disabled-panel');
     els.respuesta.focus();
     clearInterval(state.timer);
@@ -889,6 +974,17 @@
         currentQuestionMeta = { profile: challenge.profile, label: `${challenge.label}`, difficultyScore: challenge.difficultyScore, challengeWeights: challenge.challengeWeights || null };
         els.signo.innerText = challenge.sign;
         currentQuestionLabel = challenge.label;
+      } else if(lvl.type === 'school_process'){
+        const schoolType = randomFrom(['add','sub','mul']);
+        const bounds = getAdaptiveBounds(schoolType);
+        currentOperationType = schoolType;
+        question = bounds.generator(Math.max(1, bounds.tier), bounds.preferredProfile);
+        a = question.a;
+        b = question.b;
+        currentAnswer = question.answer;
+        currentQuestionMeta = { profile: `${question.profile}_process`, label: `método escolar · ${question.label}`, difficultyScore: Math.min(6, Number(question.difficultyScore || 1) + 1) };
+        els.signo.innerText = question.sign;
+        currentQuestionLabel = `${question.labelText} · Paso a paso`;
       } else {
         const bounds = getAdaptiveBounds(lvl.type);
         currentOperationType = lvl.type;
@@ -913,6 +1009,7 @@
     els.panelOperacion.classList.remove('hidden');
     setDefaultInput();
     state.currentMetrics = createQuestionMetrics();
+    resetProcessCoach();
 
     if(state.hasStarted){ els.btnIniciar.style.display = 'none'; beginQuestionInteraction(); }
     else {
@@ -992,9 +1089,10 @@
     const writeMs = Math.max(0, metrics.submit_time_ms - firstMs);
     const totalMs = Math.max(0, metrics.submit_time_ms - metrics.time_shown_ms);
     const difficulty = deriveDifficulty();
-    const masteryProfileBefore = getMasteryProfile(lvl.type === 'challenge' ? currentOperationType : lvl.type);
+    const adaptiveModeType = (lvl.type === 'challenge' || lvl.type === 'school_process') ? currentOperationType : lvl.type;
+    const masteryProfileBefore = getMasteryProfile(adaptiveModeType);
     const masteryScoreBefore = Number(masteryProfileBefore.masteryScore || 0);
-    const recommendedTier = getDifficultyTier(lvl.type === 'challenge' ? currentOperationType : lvl.type);
+    const recommendedTier = getDifficultyTier(adaptiveModeType);
     const responseScore = scoreResponse(Boolean(isCorrect), difficulty.itemDifficulty, totalMs/1000, writeMs/1000, metrics.edits_count, currentOperationType);
     const categoryKey = lvl.type;
     const currentAggregate = state.categoryAggregates[categoryKey] || { attempts:0, correct:0, wrong:0, highScore:0, scoreSum:0 };
@@ -1087,7 +1185,7 @@
     }
 
     const type = payload.mode;
-    const adaptiveType = payload.mode === 'challenge' && payload.operationType ? payload.operationType : type;
+    const adaptiveType = ((payload.mode === 'challenge' || payload.mode === 'school_process') && payload.operationType) ? payload.operationType : type;
     const resultEntry = {
       correct: payload.isCorrect,
       totalTimeSec: payload.totalTimeMs / 1000,
@@ -1202,7 +1300,7 @@
 
   function buildAbandonedAttemptPayload(position){
     const lvl = getCurrentLevel() || { name:'general', type:'general' };
-    const adaptiveType = lvl.type === 'challenge' ? currentOperationType : lvl.type;
+    const adaptiveType = (lvl.type === 'challenge' || lvl.type === 'school_process') ? currentOperationType : lvl.type;
     return {
       sessionId: state.sessionId,
       attemptNumber: state.totalAttempts,
@@ -1315,6 +1413,10 @@
       els.mensaje.innerText = 'Presiona "Iniciar" para comenzar.';
       return;
     }
+    if(isSchoolProcessMode() && (!processFlow.operationValidated || !processFlow.estimationValidated)){
+      els.mensaje.innerText = 'Completa los pasos del método escolar antes de responder.';
+      return;
+    }
 
     clearInterval(state.timer);
     const answer = parseInt(els.respuesta.value || '-1', 10);
@@ -1326,7 +1428,8 @@
 
       const attemptPayload = buildAttemptPayload({ answer, isCorrect:true, skipped:false, timedOut:false });
       const difficulty = deriveDifficulty();
-      const gained = config.basePoints + Math.floor((attemptPayload.responseScore || 0) / 20) + difficulty.score;
+      const processBonus = isSchoolProcessMode() ? 4 : 0;
+      const gained = config.basePoints + Math.floor((attemptPayload.responseScore || 0) / 20) + difficulty.score + processBonus;
       state.points += gained;
       state.questionCount++;
 
@@ -1518,6 +1621,11 @@
   els.btnMissionContinue && els.btnMissionContinue.addEventListener('click', ()=> els.missionCongratsOverlay.classList.add('hidden'));
   els.btnOpenMedals && els.btnOpenMedals.addEventListener('click', ()=>{ renderMedalsHistory(); els.medalsOverlay.classList.remove('hidden'); });
   els.btnCloseMedals && els.btnCloseMedals.addEventListener('click', ()=> els.medalsOverlay.classList.add('hidden'));
+  els.btnProcessOperation && els.btnProcessOperation.addEventListener('click', validateProcessOperation);
+  els.btnProcessEstimate && els.btnProcessEstimate.addEventListener('click', validateProcessEstimate);
+  els.processEstimateInput && els.processEstimateInput.addEventListener('input', ()=>{
+    els.processEstimateInput.value = els.processEstimateInput.value.replace(/\D/g,'').slice(0,4);
+  });
 
   const cachedPlayerId = getCachedActivePlayerId();
   if(!cachedPlayerId){
