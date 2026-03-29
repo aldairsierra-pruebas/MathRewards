@@ -128,6 +128,7 @@
   let currentOperands = [0,0];
   let currentOperationType = 'add';
   let currentQuestionMeta = { profile:'add_basic', label:'básica', difficultyScore:1 };
+  let processFlow = { active:false, selectedOperation:'', operationValidated:false, estimationValidated:false, estimatedValue:null, estimateBand:{ min:0, max:0 } };
 
   function rand(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
   function clamp(v,min=0,max=1){ return Math.max(min, Math.min(max, v)); }
@@ -945,7 +946,7 @@
   function beginQuestionInteraction(){
     if(state.isPaused){ return; }
     state.isReadyToAnswer = true;
-    setGameControlsEnabled(true);
+    setGameControlsEnabled(!isSchoolProcessMode());
     els.panelOperacion.classList.remove('disabled-panel');
     if(getCurrentLevel() && getCurrentLevel().type === 'school_process' && els.ansU){ els.ansU.focus(); }
     else { els.respuesta.focus(); }
@@ -1011,6 +1012,7 @@
     els.panelOperacion.classList.remove('hidden');
     setDefaultInput();
     state.currentMetrics = createQuestionMetrics();
+    resetProcessCoach();
 
     if(state.hasStarted){ els.btnIniciar.style.display = 'none'; beginQuestionInteraction(); }
     else {
@@ -1424,6 +1426,10 @@
       els.mensaje.innerText = 'Presiona "Iniciar" para comenzar.';
       return;
     }
+    if(isSchoolProcessMode() && (!processFlow.operationValidated || !processFlow.estimationValidated)){
+      els.mensaje.innerText = 'Completa los pasos del método escolar antes de responder.';
+      return;
+    }
 
     clearInterval(state.timer);
     const answer = getCurrentResponseValue();
@@ -1435,7 +1441,8 @@
 
       const attemptPayload = buildAttemptPayload({ answer, isCorrect:true, skipped:false, timedOut:false });
       const difficulty = deriveDifficulty();
-      const gained = config.basePoints + Math.floor((attemptPayload.responseScore || 0) / 20) + difficulty.score;
+      const processBonus = isSchoolProcessMode() ? 4 : 0;
+      const gained = config.basePoints + Math.floor((attemptPayload.responseScore || 0) / 20) + difficulty.score + processBonus;
       state.points += gained;
       state.questionCount++;
 
@@ -1646,6 +1653,11 @@
   els.btnMissionContinue && els.btnMissionContinue.addEventListener('click', ()=> els.missionCongratsOverlay.classList.add('hidden'));
   els.btnOpenMedals && els.btnOpenMedals.addEventListener('click', ()=>{ renderMedalsHistory(); els.medalsOverlay.classList.remove('hidden'); });
   els.btnCloseMedals && els.btnCloseMedals.addEventListener('click', ()=> els.medalsOverlay.classList.add('hidden'));
+  els.btnProcessOperation && els.btnProcessOperation.addEventListener('click', validateProcessOperation);
+  els.btnProcessEstimate && els.btnProcessEstimate.addEventListener('click', validateProcessEstimate);
+  els.processEstimateInput && els.processEstimateInput.addEventListener('input', ()=>{
+    els.processEstimateInput.value = els.processEstimateInput.value.replace(/\D/g,'').slice(0,4);
+  });
 
   const cachedPlayerId = getCachedActivePlayerId();
   if(!cachedPlayerId){
