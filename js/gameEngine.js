@@ -70,6 +70,7 @@
     totalTimeMs:0,
     skipsRemaining:2,
     isPaused:false,
+    procedureFocus:null,
     isReadyToAnswer:false,
     hasStarted:false,
     playerId:'Isaac',
@@ -116,7 +117,10 @@
     insByCategory: document.getElementById('insByCategory'), insAchievements: document.getElementById('insAchievements'),
     btnOpenMedals: document.getElementById('btnOpenMedals'), medalCount: document.getElementById('medalCount'), medalsOverlay: document.getElementById('medalsOverlay'),
     medalsHistoryList: document.getElementById('medalsHistoryList'), btnCloseMedals: document.getElementById('btnCloseMedals'), selectedPlayerBadge: document.getElementById('selectedPlayerBadge'),
-    processHint: document.getElementById('processHint'), lineCell: document.getElementById('lineCell'), answerCell: document.getElementById('answerCell')
+    processHint: document.getElementById('processHint'), lineCell: document.getElementById('lineCell'), answerCell: document.getElementById('answerCell'),
+    procedureFocusMenu: document.getElementById('procedureFocusMenu'), paperInputs: document.getElementById('paperInputs'),
+    carryC: document.getElementById('carryC'), carryD: document.getElementById('carryD'), carryU: document.getElementById('carryU'),
+    ansC: document.getElementById('ansC'), ansD: document.getElementById('ansD'), ansU: document.getElementById('ansU')
   };
 
   let currentAnswer = 0;
@@ -504,10 +508,26 @@
       if(e.key === 'Backspace' && state.currentMetrics){ state.currentMetrics.edits_count += 1; }
       if(e.key === 'Enter'){ e.preventDefault(); verifyAnswer(); }
     });
+
+    [els.carryC, els.carryD, els.carryU, els.ansC, els.ansD, els.ansU].forEach((input)=>{
+      if(!input) return;
+      input.addEventListener('input', ()=>{
+        input.value = input.value.replace(/\D/g,'').slice(0,1);
+      });
+      input.addEventListener('keydown', (e)=>{
+        if(e.key === 'Enter'){ e.preventDefault(); verifyAnswer(); }
+      });
+    });
   }
 
-  function setGameControlsEnabled(enabled){ els.btn.disabled = !enabled; els.btnSkip.disabled = !enabled; if(els.btnPause) els.btnPause.disabled = !enabled; els.respuesta.disabled = !enabled; }
-  function setDefaultInput(){ els.respuesta.value = ''; }
+  function setGameControlsEnabled(enabled){
+    els.btn.disabled = !enabled; els.btnSkip.disabled = !enabled; if(els.btnPause) els.btnPause.disabled = !enabled; els.respuesta.disabled = !enabled;
+    [els.carryC, els.carryD, els.carryU, els.ansC, els.ansD, els.ansU].forEach((el)=>{ if(el){ el.disabled = !enabled; } });
+  }
+  function setDefaultInput(){
+    els.respuesta.value = '';
+    [els.carryC, els.carryD, els.carryU, els.ansC, els.ansD, els.ansU].forEach((el)=>{ if(el){ el.value = ''; } });
+  }
   let presenceInputDebounce = null;
 
   function schedulePresenceUpdate(extra = {}, delayMs = 250){
@@ -552,6 +572,10 @@
     els.panelOperacion.classList.remove('hidden');
     els.panelOperacion.classList.add('disabled-panel');
     if(els.processHint) els.processHint.classList.add('hidden');
+    if(els.procedureFocusMenu) els.procedureFocusMenu.classList.add('hidden');
+    if(els.paperInputs) els.paperInputs.classList.add('hidden');
+    document.querySelectorAll('.procedure-focus-btn').forEach((btn)=> btn.classList.remove('active'));
+    state.procedureFocus = null;
     els.gameArea.classList.add('hidden');
     els.categoryMenu.classList.remove('hidden');
     els.btnIniciar.style.display = 'inline-block';
@@ -624,6 +648,27 @@
     if(els.d2) els.d2.innerText = needsTens ? getDigitValue(b, 'd') : '';
     if(els.u1) els.u1.innerText = getDigitValue(a, 'u');
     if(els.u2) els.u2.innerText = getDigitValue(b, 'u');
+
+    if(els.paperInputs){
+      const usePaperInputs = getCurrentLevel() && getCurrentLevel().type === 'school_process';
+      els.paperInputs.classList.toggle('hidden', !usePaperInputs);
+      els.respuesta.classList.toggle('hidden', usePaperInputs);
+      const toggleInput = (el, show)=>{ if(el){ el.classList.toggle('digit-hidden', !show); if(!show) el.value = ''; } };
+      toggleInput(els.carryC, needsHundreds); toggleInput(els.carryD, needsTens); toggleInput(els.carryU, true);
+      toggleInput(els.ansC, needsHundreds); toggleInput(els.ansD, needsTens); toggleInput(els.ansU, true);
+    }
+  }
+
+  function getCurrentResponseValue(){
+    const level = getCurrentLevel();
+    if(level && level.type === 'school_process'){
+      const digits = [els.ansC, els.ansD, els.ansU]
+        .filter((el)=> el && !el.classList.contains('digit-hidden'))
+        .map((el)=> (el.value || '').replace(/\D/g,''))
+        .join('');
+      return digits ? Number(digits) : NaN;
+    }
+    return parseInt(els.respuesta.value || '-1', 10);
   }
 
 
@@ -886,13 +931,16 @@
   }
 
   function getSchoolProcessPlan(){
-    const sequence = [
-      { key:'add_with_carry', type:'add', tier:2, title:'Suma con llevada', checklist:'1) Alinea unidades/decenas. 2) Suma unidades y anota la llevada. 3) Suma decenas + llevada.' },
-      { key:'sub_with_borrow', type:'sub', tier:2, title:'Resta con préstamo', checklist:'1) Alinea cifras. 2) Si no alcanza, pide préstamo a la columna siguiente. 3) Resta unidades y luego decenas.' },
-      { key:'mul_two_digit', type:'mul', tier:4, title:'Multiplicación de dos dígitos', checklist:'1) Multiplica por unidades. 2) Multiplica por decenas y recorre un lugar. 3) Suma parciales.' }
-    ];
-    const index = Math.min(sequence.length - 1, Math.floor(state.questionCount / 3));
-    return sequence[index];
+    const plans = {
+      add_carry: { key:'add_with_carry', type:'add', tier:2, title:'Suma con llevada', checklist:'1) Alinea unidades/decenas. 2) Suma unidades y anota la llevada. 3) Suma decenas + llevada.' },
+      sub_borrow: { key:'sub_with_borrow', type:'sub', tier:2, title:'Resta con préstamo', checklist:'1) Alinea cifras. 2) Si no alcanza, pide préstamo a la columna siguiente. 3) Resta unidades y luego decenas.' },
+      mul_two_digit: { key:'mul_two_digit', type:'mul', tier:4, title:'Multiplicación de dos dígitos', checklist:'1) Multiplica por unidades. 2) Multiplica por decenas y recorre un lugar. 3) Suma parciales.' }
+    };
+    if(state.procedureFocus && state.procedureFocus !== 'mixed'){
+      return plans[state.procedureFocus] || plans.add_carry;
+    }
+    const sequence = [plans.add_carry, plans.sub_borrow, plans.mul_two_digit];
+    return sequence[rand(0, sequence.length - 1)];
   }
 
   function beginQuestionInteraction(){
@@ -900,7 +948,8 @@
     state.isReadyToAnswer = true;
     setGameControlsEnabled(!isSchoolProcessMode());
     els.panelOperacion.classList.remove('disabled-panel');
-    els.respuesta.focus();
+    if(getCurrentLevel() && getCurrentLevel().type === 'school_process' && els.ansU){ els.ansU.focus(); }
+    else { els.respuesta.focus(); }
     clearInterval(state.timer);
     state.timer = setInterval(()=>{
       state.time++;
@@ -1383,7 +1432,7 @@
     }
 
     clearInterval(state.timer);
-    const answer = parseInt(els.respuesta.value || '-1', 10);
+    const answer = getCurrentResponseValue();
 
     if(answer === currentAnswer){
       state.totalAttempts++;
@@ -1474,6 +1523,7 @@
     state.skipsRemaining = 2;
     state.sessionId = buildSessionId(getCurrentLevel().type);
     state.sessionStartedAt = Date.now();
+    state.procedureFocus = null;
     state.currentCategory = { attempts:0, correct:0, scoreSum:0 };
     state.askedQuestionKeys = new Set();
     const t = getCurrentLevel().type;
@@ -1482,6 +1532,14 @@
     if(els.pauseOverlay) els.pauseOverlay.classList.add('hidden');
     els.panelOperacion.classList.remove('hidden');
     els.gameArea.classList.remove('hidden');
+    if(getCurrentLevel().type === 'school_process'){
+      if(els.procedureFocusMenu) els.procedureFocusMenu.classList.remove('hidden');
+      els.mensaje.innerText = 'Elige el enfoque de Procedimientos para comenzar.';
+      setGameControlsEnabled(false);
+      syncPresence({ currentCategory: getCurrentLevel().name, currentQuestion:'Seleccionando enfoque de procedimiento' }).catch(()=>{});
+      return;
+    }
+    if(els.procedureFocusMenu) els.procedureFocusMenu.classList.add('hidden');
     els.mensaje.innerText = `Elegiste ${getCurrentLevel().name}. Presiona Iniciar para comenzar.`;
     syncPresence({ currentCategory: getCurrentLevel().name, currentStreak: state.stats.correctStreak, currentQuestion: currentQuestionLabel, currentResponseDraft: '', skipsRemaining: state.skipsRemaining }).catch(()=>{});
     generateQuestion();
@@ -1511,6 +1569,15 @@
       }, 500);
     };
     tick();
+  }
+
+  function selectProcedureFocus(focus){
+    if(state.levelIndex === null || getCurrentLevel().type !== 'school_process'){ return; }
+    state.procedureFocus = focus;
+    document.querySelectorAll('.procedure-focus-btn').forEach((btn)=> btn.classList.toggle('active', btn.dataset.focus === focus));
+    if(els.procedureFocusMenu) els.procedureFocusMenu.classList.add('hidden');
+    els.mensaje.innerText = `Enfoque seleccionado: ${focus === 'add_carry' ? 'Sumas con llevada' : focus === 'sub_borrow' ? 'Restas con préstamo' : focus === 'mul_two_digit' ? 'Multiplicación 2 dígitos' : 'Mixto'}. Presiona Iniciar para comenzar.`;
+    generateQuestion();
   }
 
   async function setupLoginOverlay(){
@@ -1578,6 +1645,7 @@
   els.btnAbortCategory && els.btnAbortCategory.addEventListener('click', abortCurrentCategory);
   els.btnResumePause && els.btnResumePause.addEventListener('click', resumeGame);
   document.querySelectorAll('.category-btn').forEach((btn)=> btn.addEventListener('click', ()=> chooseCategory(Number(btn.dataset.level))));
+  document.querySelectorAll('.procedure-focus-btn').forEach((btn)=> btn.addEventListener('click', ()=> selectProcedureFocus(btn.dataset.focus)));
   els.btnFinalContinue && els.btnFinalContinue.addEventListener('click', ()=>{
     els.finalOverlay.classList.add('hidden');
     resetCategoryView('Categoría completada. Puedes elegir una nueva.');

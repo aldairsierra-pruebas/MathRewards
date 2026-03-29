@@ -65,6 +65,15 @@
             <div id="mensaje" class="mensaje"></div>
             
             <div id="processHint" class="process-hint hidden" aria-live="polite"></div>
+            <div id="procedureFocusMenu" class="procedure-focus hidden">
+              <strong>Selecciona el enfoque de práctica:</strong>
+              <div class="procedure-focus-grid">
+                <button type="button" class="procedure-focus-btn" data-focus="add_carry">Sumas con llevada</button>
+                <button type="button" class="procedure-focus-btn" data-focus="sub_borrow">Restas con préstamo</button>
+                <button type="button" class="procedure-focus-btn" data-focus="mul_two_digit">Multiplicación 2 dígitos</button>
+                <button type="button" class="procedure-focus-btn" data-focus="mixed">Mixto</button>
+              </div>
+            </div>
 
             <div class="start-wrap">
               <button id="btnIniciar" class="btn-iniciar">Iniciar</button>
@@ -80,6 +89,20 @@
                   <tr><td id="lineCell" colspan="4" class="linea"></td></tr>
                   <tr><td id="answerCell" colspan="4"><input id="respuesta" inputmode="numeric" maxlength="4" placeholder=""></td></tr>
                 </table>
+                <div id="paperInputs" class="paper-inputs hidden">
+                  <div class="paper-row carry-row">
+                    <span></span>
+                    <input id="carryC" inputmode="numeric" maxlength="1" placeholder="">
+                    <input id="carryD" inputmode="numeric" maxlength="1" placeholder="">
+                    <input id="carryU" inputmode="numeric" maxlength="1" placeholder="">
+                  </div>
+                  <div class="paper-row answer-row">
+                    <span>=</span>
+                    <input id="ansC" inputmode="numeric" maxlength="1" placeholder="">
+                    <input id="ansD" inputmode="numeric" maxlength="1" placeholder="">
+                    <input id="ansU" inputmode="numeric" maxlength="1" placeholder="">
+                  </div>
+                </div>
               </div>
 
               <div class="vidas-lateral" id="vidasUI" aria-label="Oportunidades restantes"></div>
