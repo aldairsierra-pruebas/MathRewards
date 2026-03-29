@@ -5,7 +5,8 @@
       { id:1, name:'Sumas', type:'add', questions:10, attempts:3, timeLimitSec:60 },
       { id:2, name:'Restas', type:'sub', questions:10, attempts:3, timeLimitSec:60 },
       { id:3, name:'Multiplicaciones', type:'mul', questions:10, attempts:3, timeLimitSec:60 },
-      { id:4, name:'Desafío', type:'challenge', questions:10, attempts:3, timeLimitSec:75 }
+      { id:4, name:'Desafío', type:'challenge', questions:10, attempts:3, timeLimitSec:75 },
+      { id:5, name:'Procedimiento en papel', type:'school_process', questions:10, attempts:3, timeLimitSec:90 }
     ],
     basePoints: 10,
     maxLives: 3,
@@ -69,6 +70,7 @@
     totalTimeMs:0,
     skipsRemaining:2,
     isPaused:false,
+    procedureFocus:null,
     isReadyToAnswer:false,
     hasStarted:false,
     playerId:'Isaac',
@@ -81,14 +83,14 @@
       fast10Streak:0,
       fast8Streak:0,
       turboTimes:[],
-      correctByType:{ add:0, sub:0, mul:0, challenge:0 },
+      correctByType:{ add:0, sub:0, mul:0, challenge:0, school_process:0 },
       attemptsCount:0,
       bestStreak:0
     },
     activeMissions: [],
     remoteMissions: [],
     currentCategory: { attempts:0, correct:0, scoreSum:0 },
-    categoryAggregates: { add:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, sub:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, mul:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, challenge:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0} },
+    categoryAggregates: { add:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, sub:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, mul:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, challenge:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, school_process:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0} },
     medalHistory: [],
     presenceHeartbeatId:null,
     askedQuestionKeys: new Set()
@@ -101,7 +103,7 @@
   const sNextQuestion = new Audio('https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg');
 
   const els = {
-    d1: document.getElementById('d1'), u1: document.getElementById('u1'), d2: document.getElementById('d2'), u2: document.getElementById('u2'), signo: document.getElementById('signo'),
+    c1: document.getElementById('c1'), d1: document.getElementById('d1'), u1: document.getElementById('u1'), c2: document.getElementById('c2'), d2: document.getElementById('d2'), u2: document.getElementById('u2'), signo: document.getElementById('signo'),
     respuesta: document.getElementById('respuesta'), btn: document.getElementById('btnResponder'), btnSkip: document.getElementById('btnSkip'), btnPause: document.getElementById('btnPause'), btnIniciar: document.getElementById('btnIniciar'), btnAbortCategory: document.getElementById('btnAbortCategory'),
     puntos: document.getElementById('puntos'), vidas: document.getElementById('vidas'), vidasUI: document.getElementById('vidasUI'), tiempo: document.getElementById('tiempo'),
     nivelTxt: document.getElementById('nivelTxt'), categoriaTxt: document.getElementById('categoriaTxt'), progresoNivelFill: document.getElementById('progresoNivelFill'),
@@ -114,7 +116,11 @@
     insWeekPoints: document.getElementById('insWeekPoints'), insWeekCorrect: document.getElementById('insWeekCorrect'), insDailyHigh: document.getElementById('insDailyHigh'), insWeekSessions: document.getElementById('insWeekSessions'),
     insByCategory: document.getElementById('insByCategory'), insAchievements: document.getElementById('insAchievements'),
     btnOpenMedals: document.getElementById('btnOpenMedals'), medalCount: document.getElementById('medalCount'), medalsOverlay: document.getElementById('medalsOverlay'),
-    medalsHistoryList: document.getElementById('medalsHistoryList'), btnCloseMedals: document.getElementById('btnCloseMedals'), selectedPlayerBadge: document.getElementById('selectedPlayerBadge')
+    medalsHistoryList: document.getElementById('medalsHistoryList'), btnCloseMedals: document.getElementById('btnCloseMedals'), selectedPlayerBadge: document.getElementById('selectedPlayerBadge'),
+    processHint: document.getElementById('processHint'), lineCell: document.getElementById('lineCell'), answerCell: document.getElementById('answerCell'),
+    procedureFocusMenu: document.getElementById('procedureFocusMenu'), paperInputs: document.getElementById('paperInputs'),
+    carryC: document.getElementById('carryC'), carryD: document.getElementById('carryD'), carryU: document.getElementById('carryU'),
+    ansC: document.getElementById('ansC'), ansD: document.getElementById('ansD'), ansU: document.getElementById('ansU')
   };
 
   let currentAnswer = 0;
@@ -376,9 +382,9 @@
 
     if(els.insByCategory){
       const byCat = insights.byCategory || {};
-      const labels = { add:'Sumas', sub:'Restas', mul:'Multiplicaciones', challenge:'Desafío' };
+      const labels = { add:'Sumas', sub:'Restas', mul:'Multiplicaciones', challenge:'Desafío', school_process:'Procedimiento en papel' };
       const rows = Object.entries(byCat)
-        .filter(([k])=>['add','sub','mul','challenge'].includes(k))
+        .filter(([k])=>['add','sub','mul','challenge','school_process'].includes(k))
         .map(([k,v])=>`${labels[k]}: ${v.correct || 0}/${v.attempts || 0} · HS ${v.highScore || 0} · Avg ${v.avgResponseScore || 0}`);
       els.insByCategory.innerHTML = rows.length ? rows.map((r)=>`<div>${r}</div>`).join('') : 'Sin datos';
     }
@@ -393,7 +399,7 @@
     }
 
     const fromDb = insights.byCategory || {};
-    ['add','sub','mul','challenge'].forEach((k)=>{
+    ['add','sub','mul','challenge','school_process'].forEach((k)=>{
       const d = fromDb[k] || {};
       state.categoryAggregates[k] = {
         attempts: Number(d.attempts || 0),
@@ -501,10 +507,26 @@
       if(e.key === 'Backspace' && state.currentMetrics){ state.currentMetrics.edits_count += 1; }
       if(e.key === 'Enter'){ e.preventDefault(); verifyAnswer(); }
     });
+
+    [els.carryC, els.carryD, els.carryU, els.ansC, els.ansD, els.ansU].forEach((input)=>{
+      if(!input) return;
+      input.addEventListener('input', ()=>{
+        input.value = input.value.replace(/\D/g,'').slice(0,1);
+      });
+      input.addEventListener('keydown', (e)=>{
+        if(e.key === 'Enter'){ e.preventDefault(); verifyAnswer(); }
+      });
+    });
   }
 
-  function setGameControlsEnabled(enabled){ els.btn.disabled = !enabled; els.btnSkip.disabled = !enabled; if(els.btnPause) els.btnPause.disabled = !enabled; els.respuesta.disabled = !enabled; }
-  function setDefaultInput(){ els.respuesta.value = ''; }
+  function setGameControlsEnabled(enabled){
+    els.btn.disabled = !enabled; els.btnSkip.disabled = !enabled; if(els.btnPause) els.btnPause.disabled = !enabled; els.respuesta.disabled = !enabled;
+    [els.carryC, els.carryD, els.carryU, els.ansC, els.ansD, els.ansU].forEach((el)=>{ if(el){ el.disabled = !enabled; } });
+  }
+  function setDefaultInput(){
+    els.respuesta.value = '';
+    [els.carryC, els.carryD, els.carryU, els.ansC, els.ansD, els.ansU].forEach((el)=>{ if(el){ el.value = ''; } });
+  }
   let presenceInputDebounce = null;
 
   function schedulePresenceUpdate(extra = {}, delayMs = 250){
@@ -548,6 +570,11 @@
     els.countdown.innerText = '';
     els.panelOperacion.classList.remove('hidden');
     els.panelOperacion.classList.add('disabled-panel');
+    if(els.processHint) els.processHint.classList.add('hidden');
+    if(els.procedureFocusMenu) els.procedureFocusMenu.classList.add('hidden');
+    if(els.paperInputs) els.paperInputs.classList.add('hidden');
+    document.querySelectorAll('.procedure-focus-btn').forEach((btn)=> btn.classList.remove('active'));
+    state.procedureFocus = null;
     els.gameArea.classList.add('hidden');
     els.categoryMenu.classList.remove('hidden');
     els.btnIniciar.style.display = 'inline-block';
@@ -595,6 +622,53 @@
 
 
   function randomFrom(items){ return items[rand(0, items.length - 1)]; }
+
+  function getDigitValue(value, place){
+    if(place === 'u') return Math.abs(value) % 10;
+    if(place === 'd') return Math.floor(Math.abs(value) / 10) % 10;
+    return Math.floor(Math.abs(value) / 100) % 10;
+  }
+
+  function renderColumnOperation(a, b){
+    const needsHundreds = Math.abs(a) >= 100 || Math.abs(b) >= 100;
+    const needsTens = Math.abs(a) >= 10 || Math.abs(b) >= 10 || needsHundreds;
+    const visibleCols = 1 + (needsHundreds ? 3 : (needsTens ? 2 : 1)); // sign + digits
+    if(els.lineCell) els.lineCell.colSpan = visibleCols;
+    if(els.answerCell) els.answerCell.colSpan = visibleCols;
+
+    const showHundreds = (cell)=> cell && cell.classList.toggle('digit-hidden', !needsHundreds);
+    const showTens = (cell)=> cell && cell.classList.toggle('digit-hidden', !needsTens);
+    showHundreds(els.c1); showHundreds(els.c2);
+    showTens(els.d1); showTens(els.d2);
+
+    if(els.c1) els.c1.innerText = needsHundreds ? getDigitValue(a, 'c') : '';
+    if(els.c2) els.c2.innerText = needsHundreds ? getDigitValue(b, 'c') : '';
+    if(els.d1) els.d1.innerText = needsTens ? getDigitValue(a, 'd') : '';
+    if(els.d2) els.d2.innerText = needsTens ? getDigitValue(b, 'd') : '';
+    if(els.u1) els.u1.innerText = getDigitValue(a, 'u');
+    if(els.u2) els.u2.innerText = getDigitValue(b, 'u');
+
+    if(els.paperInputs){
+      const usePaperInputs = getCurrentLevel() && getCurrentLevel().type === 'school_process';
+      els.paperInputs.classList.toggle('hidden', !usePaperInputs);
+      els.respuesta.classList.toggle('hidden', usePaperInputs);
+      const toggleInput = (el, show)=>{ if(el){ el.classList.toggle('digit-hidden', !show); if(!show) el.value = ''; } };
+      toggleInput(els.carryC, needsHundreds); toggleInput(els.carryD, needsTens); toggleInput(els.carryU, true);
+      toggleInput(els.ansC, needsHundreds); toggleInput(els.ansD, needsTens); toggleInput(els.ansU, true);
+    }
+  }
+
+  function getCurrentResponseValue(){
+    const level = getCurrentLevel();
+    if(level && level.type === 'school_process'){
+      const digits = [els.ansC, els.ansD, els.ansU]
+        .filter((el)=> el && !el.classList.contains('digit-hidden'))
+        .map((el)=> (el.value || '').replace(/\D/g,''))
+        .join('');
+      return digits ? Number(digits) : NaN;
+    }
+    return parseInt(els.respuesta.value || '-1', 10);
+  }
 
 
   function getProfileType(skillProfile){
@@ -854,12 +928,27 @@
     const builders = { add: buildAdditionQuestion, sub: buildSubtractionQuestion, mul: buildMultiplicationQuestion };
     return { tier, generator: builders[type], preferredProfile: chooseSkillProfileForType(type, tier) };
   }
+
+  function getSchoolProcessPlan(){
+    const plans = {
+      add_carry: { key:'add_with_carry', type:'add', tier:2, title:'Suma con llevada', checklist:'1) Alinea unidades/decenas. 2) Suma unidades y anota la llevada. 3) Suma decenas + llevada.' },
+      sub_borrow: { key:'sub_with_borrow', type:'sub', tier:2, title:'Resta con préstamo', checklist:'1) Alinea cifras. 2) Si no alcanza, pide préstamo a la columna siguiente. 3) Resta unidades y luego decenas.' },
+      mul_two_digit: { key:'mul_two_digit', type:'mul', tier:4, title:'Multiplicación de dos dígitos', checklist:'1) Multiplica por unidades. 2) Multiplica por decenas y recorre un lugar. 3) Suma parciales.' }
+    };
+    if(state.procedureFocus && state.procedureFocus !== 'mixed'){
+      return plans[state.procedureFocus] || plans.add_carry;
+    }
+    const sequence = [plans.add_carry, plans.sub_borrow, plans.mul_two_digit];
+    return sequence[rand(0, sequence.length - 1)];
+  }
+
   function beginQuestionInteraction(){
     if(state.isPaused){ return; }
     state.isReadyToAnswer = true;
     setGameControlsEnabled(true);
     els.panelOperacion.classList.remove('disabled-panel');
-    els.respuesta.focus();
+    if(getCurrentLevel() && getCurrentLevel().type === 'school_process' && els.ansU){ els.ansU.focus(); }
+    else { els.respuesta.focus(); }
     clearInterval(state.timer);
     state.timer = setInterval(()=>{
       state.time++;
@@ -889,6 +978,18 @@
         currentQuestionMeta = { profile: challenge.profile, label: `${challenge.label}`, difficultyScore: challenge.difficultyScore, challengeWeights: challenge.challengeWeights || null };
         els.signo.innerText = challenge.sign;
         currentQuestionLabel = challenge.label;
+      } else if(lvl.type === 'school_process'){
+        const plan = getSchoolProcessPlan();
+        const bounds = getAdaptiveBounds(plan.type);
+        currentOperationType = plan.type;
+        const preferredByPlan = ({ add_with_carry:'add_with_carry', sub_with_borrow:'sub_with_borrow', mul_two_digit:'mul_two_digit' })[plan.key] || bounds.preferredProfile;
+        question = bounds.generator(Math.max(plan.tier, bounds.tier), preferredByPlan);
+        a = question.a;
+        b = question.b;
+        currentAnswer = question.answer;
+        currentQuestionMeta = { profile: plan.key, label: `${plan.title}`, difficultyScore: Math.min(6, Number(question.difficultyScore || 1) + 1) };
+        els.signo.innerText = question.sign;
+        currentQuestionLabel = `${question.labelText} · ${plan.title}`;
       } else {
         const bounds = getAdaptiveBounds(lvl.type);
         currentOperationType = lvl.type;
@@ -906,10 +1007,7 @@
     state.askedQuestionKeys.add(key);
 
     currentOperands = [a,b];
-    els.d1.innerText = Math.floor(a/10) || '';
-    els.u1.innerText = a%10;
-    els.d2.innerText = Math.floor(b/10) || '';
-    els.u2.innerText = b%10;
+    renderColumnOperation(a,b);
     els.panelOperacion.classList.remove('hidden');
     setDefaultInput();
     state.currentMetrics = createQuestionMetrics();
@@ -921,6 +1019,16 @@
       els.panelOperacion.classList.add('disabled-panel');
       els.btnIniciar.style.display = 'inline-block';
       els.btnIniciar.disabled = false;
+    }
+
+    if(els.processHint){
+      if(lvl.type === 'school_process'){
+        const plan = getSchoolProcessPlan();
+        els.processHint.classList.remove('hidden');
+        els.processHint.innerText = `📝 ${plan.title}: ${plan.checklist}`;
+      } else {
+        els.processHint.classList.add('hidden');
+      }
     }
 
     updateHUD();
@@ -992,9 +1100,10 @@
     const writeMs = Math.max(0, metrics.submit_time_ms - firstMs);
     const totalMs = Math.max(0, metrics.submit_time_ms - metrics.time_shown_ms);
     const difficulty = deriveDifficulty();
-    const masteryProfileBefore = getMasteryProfile(lvl.type === 'challenge' ? currentOperationType : lvl.type);
+    const adaptiveModeType = (lvl.type === 'challenge' || lvl.type === 'school_process') ? currentOperationType : lvl.type;
+    const masteryProfileBefore = getMasteryProfile(adaptiveModeType);
     const masteryScoreBefore = Number(masteryProfileBefore.masteryScore || 0);
-    const recommendedTier = getDifficultyTier(lvl.type === 'challenge' ? currentOperationType : lvl.type);
+    const recommendedTier = getDifficultyTier(adaptiveModeType);
     const responseScore = scoreResponse(Boolean(isCorrect), difficulty.itemDifficulty, totalMs/1000, writeMs/1000, metrics.edits_count, currentOperationType);
     const categoryKey = lvl.type;
     const currentAggregate = state.categoryAggregates[categoryKey] || { attempts:0, correct:0, wrong:0, highScore:0, scoreSum:0 };
@@ -1087,7 +1196,7 @@
     }
 
     const type = payload.mode;
-    const adaptiveType = payload.mode === 'challenge' && payload.operationType ? payload.operationType : type;
+    const adaptiveType = ((payload.mode === 'challenge' || payload.mode === 'school_process') && payload.operationType) ? payload.operationType : type;
     const resultEntry = {
       correct: payload.isCorrect,
       totalTimeSec: payload.totalTimeMs / 1000,
@@ -1202,7 +1311,7 @@
 
   function buildAbandonedAttemptPayload(position){
     const lvl = getCurrentLevel() || { name:'general', type:'general' };
-    const adaptiveType = lvl.type === 'challenge' ? currentOperationType : lvl.type;
+    const adaptiveType = (lvl.type === 'challenge' || lvl.type === 'school_process') ? currentOperationType : lvl.type;
     return {
       sessionId: state.sessionId,
       attemptNumber: state.totalAttempts,
@@ -1317,7 +1426,7 @@
     }
 
     clearInterval(state.timer);
-    const answer = parseInt(els.respuesta.value || '-1', 10);
+    const answer = getCurrentResponseValue();
 
     if(answer === currentAnswer){
       state.totalAttempts++;
@@ -1407,6 +1516,7 @@
     state.skipsRemaining = 2;
     state.sessionId = buildSessionId(getCurrentLevel().type);
     state.sessionStartedAt = Date.now();
+    state.procedureFocus = null;
     state.currentCategory = { attempts:0, correct:0, scoreSum:0 };
     state.askedQuestionKeys = new Set();
     const t = getCurrentLevel().type;
@@ -1415,6 +1525,14 @@
     if(els.pauseOverlay) els.pauseOverlay.classList.add('hidden');
     els.panelOperacion.classList.remove('hidden');
     els.gameArea.classList.remove('hidden');
+    if(getCurrentLevel().type === 'school_process'){
+      if(els.procedureFocusMenu) els.procedureFocusMenu.classList.remove('hidden');
+      els.mensaje.innerText = 'Elige el enfoque de Procedimientos para comenzar.';
+      setGameControlsEnabled(false);
+      syncPresence({ currentCategory: getCurrentLevel().name, currentQuestion:'Seleccionando enfoque de procedimiento' }).catch(()=>{});
+      return;
+    }
+    if(els.procedureFocusMenu) els.procedureFocusMenu.classList.add('hidden');
     els.mensaje.innerText = `Elegiste ${getCurrentLevel().name}. Presiona Iniciar para comenzar.`;
     syncPresence({ currentCategory: getCurrentLevel().name, currentStreak: state.stats.correctStreak, currentQuestion: currentQuestionLabel, currentResponseDraft: '', skipsRemaining: state.skipsRemaining }).catch(()=>{});
     generateQuestion();
@@ -1444,6 +1562,15 @@
       }, 500);
     };
     tick();
+  }
+
+  function selectProcedureFocus(focus){
+    if(state.levelIndex === null || getCurrentLevel().type !== 'school_process'){ return; }
+    state.procedureFocus = focus;
+    document.querySelectorAll('.procedure-focus-btn').forEach((btn)=> btn.classList.toggle('active', btn.dataset.focus === focus));
+    if(els.procedureFocusMenu) els.procedureFocusMenu.classList.add('hidden');
+    els.mensaje.innerText = `Enfoque seleccionado: ${focus === 'add_carry' ? 'Sumas con llevada' : focus === 'sub_borrow' ? 'Restas con préstamo' : focus === 'mul_two_digit' ? 'Multiplicación 2 dígitos' : 'Mixto'}. Presiona Iniciar para comenzar.`;
+    generateQuestion();
   }
 
   async function setupLoginOverlay(){
@@ -1511,6 +1638,7 @@
   els.btnAbortCategory && els.btnAbortCategory.addEventListener('click', abortCurrentCategory);
   els.btnResumePause && els.btnResumePause.addEventListener('click', resumeGame);
   document.querySelectorAll('.category-btn').forEach((btn)=> btn.addEventListener('click', ()=> chooseCategory(Number(btn.dataset.level))));
+  document.querySelectorAll('.procedure-focus-btn').forEach((btn)=> btn.addEventListener('click', ()=> selectProcedureFocus(btn.dataset.focus)));
   els.btnFinalContinue && els.btnFinalContinue.addEventListener('click', ()=>{
     els.finalOverlay.classList.add('hidden');
     resetCategoryView('Categoría completada. Puedes elegir una nueva.');

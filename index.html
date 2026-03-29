@@ -52,6 +52,7 @@
               <button class="category-btn" data-level="1"><span class="symbol sub">－</span><span>Restas</span></button>
               <button class="category-btn" data-level="2"><span class="symbol mul">×</span><span>Multiplicaciones</span></button>
               <button class="category-btn" data-level="3"><span class="symbol mul">★</span><span>Desafío</span></button>
+              <button class="category-btn category-btn-process" data-level="4"><span class="symbol process">🧩</span><span>Procedimiento en papel</span></button>
             </div>
           </section>
 
@@ -62,6 +63,17 @@
             </div>
 
             <div id="mensaje" class="mensaje"></div>
+            
+            <div id="processHint" class="process-hint hidden" aria-live="polite"></div>
+            <div id="procedureFocusMenu" class="procedure-focus hidden">
+              <strong>Selecciona el enfoque de práctica:</strong>
+              <div class="procedure-focus-grid">
+                <button type="button" class="procedure-focus-btn" data-focus="add_carry">Sumas con llevada</button>
+                <button type="button" class="procedure-focus-btn" data-focus="sub_borrow">Restas con préstamo</button>
+                <button type="button" class="procedure-focus-btn" data-focus="mul_two_digit">Multiplicación 2 dígitos</button>
+                <button type="button" class="procedure-focus-btn" data-focus="mixed">Mixto</button>
+              </div>
+            </div>
 
             <div class="start-wrap">
               <button id="btnIniciar" class="btn-iniciar">Iniciar</button>
@@ -72,11 +84,25 @@
             <div class="juego-wrap">
               <div class="operacion" id="panelOperacion">
                 <table>
-                  <tr><td></td><td id="d1"></td><td id="u1"></td></tr>
-                  <tr><td id="signo"></td><td id="d2"></td><td id="u2"></td></tr>
-                  <tr><td colspan="3" class="linea"></td></tr>
-                  <tr><td colspan="3"><input id="respuesta" inputmode="numeric" maxlength="3" placeholder=""></td></tr>
+                  <tr><td class="sign-col"></td><td id="c1"></td><td id="d1"></td><td id="u1"></td></tr>
+                  <tr><td id="signo" class="sign-col"></td><td id="c2"></td><td id="d2"></td><td id="u2"></td></tr>
+                  <tr><td id="lineCell" colspan="4" class="linea"></td></tr>
+                  <tr><td id="answerCell" colspan="4"><input id="respuesta" inputmode="numeric" maxlength="4" placeholder=""></td></tr>
                 </table>
+                <div id="paperInputs" class="paper-inputs hidden">
+                  <div class="paper-row carry-row">
+                    <span></span>
+                    <input id="carryC" inputmode="numeric" maxlength="1" placeholder="">
+                    <input id="carryD" inputmode="numeric" maxlength="1" placeholder="">
+                    <input id="carryU" inputmode="numeric" maxlength="1" placeholder="">
+                  </div>
+                  <div class="paper-row answer-row">
+                    <span>=</span>
+                    <input id="ansC" inputmode="numeric" maxlength="1" placeholder="">
+                    <input id="ansD" inputmode="numeric" maxlength="1" placeholder="">
+                    <input id="ansU" inputmode="numeric" maxlength="1" placeholder="">
+                  </div>
+                </div>
               </div>
 
               <div class="vidas-lateral" id="vidasUI" aria-label="Oportunidades restantes"></div>
