@@ -52,7 +52,7 @@
               <button class="category-btn" data-level="1"><span class="symbol sub">－</span><span>Restas</span></button>
               <button class="category-btn" data-level="2"><span class="symbol mul">×</span><span>Multiplicaciones</span></button>
               <button class="category-btn" data-level="3"><span class="symbol mul">★</span><span>Desafío</span></button>
-              <button class="category-btn category-btn-process" data-level="4"><span class="symbol process">🧩</span><span>Procedimiento en papel</span></button>
+              <button class="category-btn category-btn-cards" data-level="4"><span class="symbol cards">🃏</span><span>Cartas matemáticas</span></button>
             </div>
           </section>
 
@@ -81,8 +81,8 @@
               <div id="countdown" class="countdown" aria-live="polite"></div>
             </div>
 
-            <div class="juego-wrap">
-              <div class="operacion" id="panelOperacion">
+              <div class="juego-wrap">
+                <div class="operacion" id="panelOperacion">
                 <table>
                   <tr><td class="sign-col"></td><td id="c1"></td><td id="d1"></td><td id="u1"></td></tr>
                   <tr><td id="signo" class="sign-col"></td><td id="c2"></td><td id="d2"></td><td id="u2"></td></tr>
@@ -105,8 +105,13 @@
                 </div>
               </div>
 
-              <div class="vidas-lateral" id="vidasUI" aria-label="Oportunidades restantes"></div>
-            </div>
+                <div class="vidas-lateral" id="vidasUI" aria-label="Oportunidades restantes"></div>
+              </div>
+
+              <section id="cardGameBoard" class="card-game-board hidden" aria-live="polite">
+                <h4>Elige la carta con la respuesta correcta</h4>
+                <div id="cardOptions" class="card-options"></div>
+              </section>
 
             <div class="actions actions-large">
               <button id="btnResponder" class="action-primary">Responder</button>
