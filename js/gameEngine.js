@@ -6,7 +6,7 @@
       { id:2, name:'Restas', type:'sub', questions:10, attempts:3, timeLimitSec:60 },
       { id:3, name:'Multiplicaciones', type:'mul', questions:10, attempts:3, timeLimitSec:60 },
       { id:4, name:'Desafío', type:'challenge', questions:10, attempts:3, timeLimitSec:75 },
-      { id:5, name:'Procedimiento en papel', type:'school_process', questions:10, attempts:3, timeLimitSec:90 }
+      { id:5, name:'Cartas matemáticas', type:'card_game', questions:10, attempts:3, timeLimitSec:60 }
     ],
     basePoints: 10,
     maxLives: 3,
@@ -73,6 +73,7 @@
     procedureFocus:null,
     isReadyToAnswer:false,
     hasStarted:false,
+    selectedCardAnswer:null,
     playerId:'Isaac',
     adaptiveProfiles: {},
     recentResults: { add:[], sub:[], mul:[], challenge:[] },
@@ -90,7 +91,7 @@
     activeMissions: [],
     remoteMissions: [],
     currentCategory: { attempts:0, correct:0, scoreSum:0 },
-    categoryAggregates: { add:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, sub:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, mul:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, challenge:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, school_process:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0} },
+    categoryAggregates: { add:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, sub:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, mul:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, challenge:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, card_game:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0}, school_process:{attempts:0,correct:0,wrong:0,highScore:0,scoreSum:0} },
     medalHistory: [],
     presenceHeartbeatId:null,
     askedQuestionKeys: new Set()
@@ -119,6 +120,7 @@
     medalsHistoryList: document.getElementById('medalsHistoryList'), btnCloseMedals: document.getElementById('btnCloseMedals'), selectedPlayerBadge: document.getElementById('selectedPlayerBadge'),
     processHint: document.getElementById('processHint'), lineCell: document.getElementById('lineCell'), answerCell: document.getElementById('answerCell'),
     procedureFocusMenu: document.getElementById('procedureFocusMenu'), paperInputs: document.getElementById('paperInputs'),
+    cardGameBoard: document.getElementById('cardGameBoard'), cardOptions: document.getElementById('cardOptions'),
     carryC: document.getElementById('carryC'), carryD: document.getElementById('carryD'), carryU: document.getElementById('carryU'),
     ansC: document.getElementById('ansC'), ansD: document.getElementById('ansD'), ansU: document.getElementById('ansU')
   };
@@ -133,6 +135,14 @@
   function rand(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
   function clamp(v,min=0,max=1){ return Math.max(min, Math.min(max, v)); }
   function getCurrentLevel(){ return state.levelIndex === null ? null : config.levels[state.levelIndex]; }
+  function isSchoolProcessMode(){
+    const level = getCurrentLevel();
+    return Boolean(level && level.type === 'school_process');
+  }
+  function isCardGameMode(){
+    const level = getCurrentLevel();
+    return Boolean(level && level.type === 'card_game');
+  }
   function nowIso(){ return new Date().toISOString(); }
 
   const ACTIVE_PLAYER_STORAGE_KEY = 'misiones_active_player';
@@ -155,7 +165,7 @@
   function buildSessionId(mode = 'general'){
     const d = new Date();
     const pad = (n, size = 2) => String(n).padStart(size,'0');
-    const modeLabel = ({ add:'sumas', sub:'restas', mul:'multiplicaciones', challenge:'desafio' }[mode] || String(mode || 'general').toLowerCase().replace(/[^a-z0-9]+/g,'-'));
+    const modeLabel = ({ add:'sumas', sub:'restas', mul:'multiplicaciones', challenge:'desafio', card_game:'cartas' }[mode] || String(mode || 'general').toLowerCase().replace(/[^a-z0-9]+/g,'-'));
     return `${pad(d.getDate())}${pad(d.getMonth()+1)}${d.getFullYear()}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}_${modeLabel}`;
   }
 
@@ -554,6 +564,7 @@
   function resetCategoryView(message = 'Selecciona una categoría para iniciar.') {
     clearInterval(state.timer);
     state.hasStarted = false;
+    state.selectedCardAnswer = null;
     state.isPaused = false;
     state.isReadyToAnswer = false;
     state.levelIndex = null;
@@ -574,6 +585,8 @@
     if(els.processHint) els.processHint.classList.add('hidden');
     if(els.procedureFocusMenu) els.procedureFocusMenu.classList.add('hidden');
     if(els.paperInputs) els.paperInputs.classList.add('hidden');
+    if(els.cardGameBoard) els.cardGameBoard.classList.add('hidden');
+    if(els.cardOptions) els.cardOptions.innerHTML = '';
     document.querySelectorAll('.procedure-focus-btn').forEach((btn)=> btn.classList.remove('active'));
     state.procedureFocus = null;
     els.gameArea.classList.add('hidden');
@@ -651,8 +664,9 @@
 
     if(els.paperInputs){
       const usePaperInputs = getCurrentLevel() && getCurrentLevel().type === 'school_process';
+      const useCards = getCurrentLevel() && getCurrentLevel().type === 'card_game';
       els.paperInputs.classList.toggle('hidden', !usePaperInputs);
-      els.respuesta.classList.toggle('hidden', usePaperInputs);
+      els.respuesta.classList.toggle('hidden', usePaperInputs || useCards);
       const toggleInput = (el, show)=>{ if(el){ el.classList.toggle('digit-hidden', !show); if(!show) el.value = ''; } };
       toggleInput(els.carryC, needsHundreds); toggleInput(els.carryD, needsTens); toggleInput(els.carryU, true);
       toggleInput(els.ansC, needsHundreds); toggleInput(els.ansD, needsTens); toggleInput(els.ansU, true);
@@ -661,6 +675,9 @@
 
   function getCurrentResponseValue(){
     const level = getCurrentLevel();
+    if(level && level.type === 'card_game'){
+      return Number(state.selectedCardAnswer);
+    }
     if(level && level.type === 'school_process'){
       const digits = [els.ansC, els.ansD, els.ansU]
         .filter((el)=> el && !el.classList.contains('digit-hidden'))
@@ -669,6 +686,50 @@
       return digits ? Number(digits) : NaN;
     }
     return parseInt(els.respuesta.value || '-1', 10);
+  }
+
+  function buildCardOptions(correctAnswer){
+    const options = new Set([Number(correctAnswer)]);
+    let guard = 0;
+    while(options.size < 4 && guard < 40){
+      const drift = rand(-18, 18) || rand(1, 9);
+      options.add(Number(correctAnswer) + drift);
+      guard += 1;
+    }
+    return Array.from(options).sort(()=> Math.random() - 0.5);
+  }
+
+  function selectCardAnswer(button, value){
+    if(!state.isReadyToAnswer || !isCardGameMode()){ return; }
+    state.selectedCardAnswer = Number(value);
+    const isCorrect = Number(value) === Number(currentAnswer);
+    const allCards = els.cardOptions ? Array.from(els.cardOptions.querySelectorAll('.answer-card')) : [];
+    allCards.forEach((card)=>{
+      card.classList.add('locked');
+      if(Number(card.dataset.value) === Number(currentAnswer)){ card.classList.add('correct'); }
+    });
+    if(!isCorrect){ button.classList.add('wrong'); }
+    setTimeout(()=> verifyAnswer(), 320);
+  }
+
+  function renderCardOptions(){
+    if(!els.cardGameBoard || !els.cardOptions){ return; }
+    if(!isCardGameMode()){
+      els.cardGameBoard.classList.add('hidden');
+      return;
+    }
+    els.cardGameBoard.classList.remove('hidden');
+    els.cardOptions.innerHTML = '';
+    state.selectedCardAnswer = null;
+    buildCardOptions(currentAnswer).forEach((option)=>{
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'answer-card';
+      card.dataset.value = String(option);
+      card.innerText = String(option);
+      card.addEventListener('click', ()=> selectCardAnswer(card, option));
+      els.cardOptions.appendChild(card);
+    });
   }
 
 
@@ -946,9 +1007,15 @@
   function beginQuestionInteraction(){
     if(state.isPaused){ return; }
     state.isReadyToAnswer = true;
-    setGameControlsEnabled(!isSchoolProcessMode());
+    const enableClassicControls = !isSchoolProcessMode();
+    setGameControlsEnabled(enableClassicControls);
+    if(isCardGameMode() && els.respuesta){ els.respuesta.disabled = true; }
     els.panelOperacion.classList.remove('disabled-panel');
-    if(getCurrentLevel() && getCurrentLevel().type === 'school_process' && els.ansU){ els.ansU.focus(); }
+    if(isCardGameMode()){
+      const firstCard = els.cardOptions ? els.cardOptions.querySelector('.answer-card') : null;
+      if(firstCard){ firstCard.focus(); }
+    }
+    else if(getCurrentLevel() && getCurrentLevel().type === 'school_process' && els.ansU){ els.ansU.focus(); }
     else { els.respuesta.focus(); }
     clearInterval(state.timer);
     state.timer = setInterval(()=>{
@@ -991,6 +1058,17 @@
         currentQuestionMeta = { profile: plan.key, label: `${plan.title}`, difficultyScore: Math.min(6, Number(question.difficultyScore || 1) + 1) };
         els.signo.innerText = question.sign;
         currentQuestionLabel = `${question.labelText} · ${plan.title}`;
+      } else if(lvl.type === 'card_game'){
+        const cardType = randomFrom(['add','sub','mul']);
+        const bounds = getAdaptiveBounds(cardType);
+        currentOperationType = cardType;
+        question = bounds.generator(bounds.tier, bounds.preferredProfile);
+        a = question.a;
+        b = question.b;
+        currentAnswer = question.answer;
+        currentQuestionMeta = { profile: `${question.profile}_card`, label: `cartas · ${question.label}`, difficultyScore: Math.min(6, Number(question.difficultyScore || 1) + 1) };
+        els.signo.innerText = question.sign;
+        currentQuestionLabel = `Cartas: ${question.labelText}`;
       } else {
         const bounds = getAdaptiveBounds(lvl.type);
         currentOperationType = lvl.type;
@@ -1009,6 +1087,7 @@
 
     currentOperands = [a,b];
     renderColumnOperation(a,b);
+    renderCardOptions();
     els.panelOperacion.classList.remove('hidden');
     setDefaultInput();
     state.currentMetrics = createQuestionMetrics();
@@ -1424,6 +1503,10 @@
   function verifyAnswer(){
     if(!state.isReadyToAnswer){
       els.mensaje.innerText = 'Presiona "Iniciar" para comenzar.';
+      return;
+    }
+    if(isCardGameMode() && (state.selectedCardAnswer === null || Number.isNaN(Number(state.selectedCardAnswer)))){
+      els.mensaje.innerText = 'Elige una carta para responder.';
       return;
     }
     if(isSchoolProcessMode() && (!processFlow.operationValidated || !processFlow.estimationValidated)){
