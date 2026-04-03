@@ -533,6 +533,14 @@
   function setGameControlsEnabled(enabled){
     els.btn.disabled = !enabled; els.btnSkip.disabled = !enabled; if(els.btnPause) els.btnPause.disabled = !enabled; els.respuesta.disabled = !enabled;
     [els.carryC, els.carryD, els.carryU, els.ansC, els.ansD, els.ansU].forEach((el)=>{ if(el){ el.disabled = !enabled; } });
+    setCardButtonsEnabled(enabled && state.isReadyToAnswer && isCardGameMode());
+  }
+  function setCardButtonsEnabled(enabled){
+    if(!els.cardOptions){ return; }
+    Array.from(els.cardOptions.querySelectorAll('.answer-card')).forEach((card)=>{
+      card.disabled = !enabled;
+      card.classList.toggle('locked', !enabled);
+    });
   }
   function setDefaultInput(){
     els.respuesta.value = '';
@@ -700,11 +708,12 @@
   }
 
   function selectCardAnswer(button, value){
-    if(!state.isReadyToAnswer || !isCardGameMode()){ return; }
+    if(!state.isReadyToAnswer || !isCardGameMode() || button.disabled){ return; }
     state.selectedCardAnswer = Number(value);
     const isCorrect = Number(value) === Number(currentAnswer);
     const allCards = els.cardOptions ? Array.from(els.cardOptions.querySelectorAll('.answer-card')) : [];
     allCards.forEach((card)=>{
+      card.disabled = true;
       card.classList.add('locked');
       if(Number(card.dataset.value) === Number(currentAnswer)){ card.classList.add('correct'); }
     });
@@ -730,6 +739,7 @@
       card.addEventListener('click', ()=> selectCardAnswer(card, option));
       els.cardOptions.appendChild(card);
     });
+    setCardButtonsEnabled(state.isReadyToAnswer);
   }
 
 
@@ -1012,6 +1022,7 @@
     if(isCardGameMode() && els.respuesta){ els.respuesta.disabled = true; }
     els.panelOperacion.classList.remove('disabled-panel');
     if(isCardGameMode()){
+      setCardButtonsEnabled(true);
       const firstCard = els.cardOptions ? els.cardOptions.querySelector('.answer-card') : null;
       if(firstCard){ firstCard.focus(); }
     }
@@ -1122,6 +1133,7 @@
   function scheduleNextQuestion(delayMs = 3000){
     state.isReadyToAnswer = false;
     setGameControlsEnabled(false);
+    setCardButtonsEnabled(false);
     els.panelOperacion.classList.add('disabled-panel');
     sNextQuestion.currentTime = 0;
     sNextQuestion.play().catch(()=>{});
