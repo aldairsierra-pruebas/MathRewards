@@ -493,7 +493,7 @@
       const raw = els.respuesta.value;
       const onlyDigits = raw.replace(/\D/g, '');
       if(raw !== onlyDigits && state.currentMetrics){ state.currentMetrics.input_errors += 1; }
-      const cropped = onlyDigits.slice(0,3);
+      const cropped = onlyDigits.slice(0,4);
       if(cropped !== els.respuesta.value && state.currentMetrics){ state.currentMetrics.input_errors += 1; }
 
       if(state.currentMetrics){
